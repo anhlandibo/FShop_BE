@@ -27,11 +27,17 @@ export default tseslint.config(
   {
     rules: {
       'prettier/prettier': [
-        'error',
+        'warn',
         {
           endOfLine: 'auto',
+          // quy dinh kieu xuong dong sao cung duoc
+          printWidth: 120,
+          // do dai toi da cua 1 dong
+          bracketSpacing: true,
+          // cho phep khaong trong o giua
         },
       ],
+      '@typescript-eslint/no-unused-vars': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-floating-promises': 'off',
       '@typescript-eslint/no-unsafe-argument': 'warn'
