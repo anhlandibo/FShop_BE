@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: movie_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: username
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: movie_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - movie_postgres_data:/var/lib/postgresql/data
+volumes:
+  movie_postgres_data:
