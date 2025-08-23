@@ -1,8 +1,11 @@
-
-import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
+import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, BadRequestException } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { ResponseDto } from 'src/dto/response.dto';
-
+interface PipeRespone {
+    message: string[]
+    error: string
+    stateCode: number
+}
 @Catch()
 export class AllExceptionFilter implements ExceptionFilter {
     catch(exception: HttpException, host: ArgumentsHost) {
@@ -14,10 +17,14 @@ export class AllExceptionFilter implements ExceptionFilter {
             exception instanceof HttpException
                 ? exception.getStatus()
                 : HttpStatus.INTERNAL_SERVER_ERROR;
-        const message =
+        let message =
             exception instanceof HttpException
                 ? exception.getResponse() as string
                 : 'Internal server error';
+        if (exception instanceof BadRequestException) {
+            message = (exception.getResponse() as PipeRespone).message[0]
+        }
+        const a = []
         response
             .status(status)
             .json(new ResponseDto(
