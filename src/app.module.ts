@@ -6,7 +6,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import getDatabaseConfig from 'src/configs/database.config';
 import { TransformInterceptor } from 'src/interceptors/transform.interceptor';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { AllExceptionFilter } from 'src/filters/all-exception.filter';
 
 @Module({
   imports: [
@@ -26,7 +27,12 @@ import { APP_INTERCEPTOR } from '@nestjs/core';
       provide: APP_INTERCEPTOR,
       useClass: TransformInterceptor,
     },
-    // xet global Interceptor 
+    // xet global Interceptor
+    {
+      provide: APP_FILTER,
+      useClass: AllExceptionFilter,
+    },
+    // xet global Exception
   ],
 })
 export class AppModule { }

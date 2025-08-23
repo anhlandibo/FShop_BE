@@ -1,4 +1,5 @@
 import { Request } from "express";
+import { convertISODate } from "src/utils/convertTime";
 
 export class ResponseDto<T = any> {
     statusCode: number
@@ -10,7 +11,7 @@ export class ResponseDto<T = any> {
         this.statusCode = stateCode
         this.message = message
         this.data = data
-        this.timestamp = new Date().toISOString()
+        this.timestamp = convertISODate(new Date().toISOString())
         this.path = request?.url || ''
     }
 }
