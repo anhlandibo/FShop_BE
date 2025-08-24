@@ -1,8 +1,8 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { LoginAuthDto } from './dto/login-auth.dto';
-import { UsersService } from 'src/users/users.service';
 import { comparePassword } from 'src/utils/hash';
 import { JwtService } from '@nestjs/jwt';
+import { UsersService } from 'src/modules/users/users.service';
 
 @Injectable()
 export class AuthService {
@@ -18,7 +18,7 @@ export class AuthService {
     if (!isMatch)
       throw new HttpException("Bad credential", HttpStatus.UNAUTHORIZED)
     //generate JWT
-    const payload = { sub: user.id, username: user.email };
+    const payload = { sub: user.id, username: user.email, role: user.role };
     return {
       access_token: await this.jwtService.signAsync(payload),
     };

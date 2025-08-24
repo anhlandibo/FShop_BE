@@ -1,3 +1,4 @@
+import { Role } from 'src/constants/role.enum';
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 @Entity()
@@ -13,6 +14,13 @@ export class User {
 
     @Column()
     password: string
+
+    @Column({
+        type: 'enum',
+        enum: Role,
+        default: Role.User, // mặc định là user
+    })
+    role: Role
 
     @Column({ default: true })
     isActive: boolean;
