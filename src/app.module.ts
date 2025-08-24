@@ -8,6 +8,7 @@ import getDatabaseConfig from 'src/configs/database.config';
 import { TransformInterceptor } from 'src/interceptors/transform.interceptor';
 import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { AllExceptionFilter } from 'src/filters/all-exception.filter';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AllExceptionFilter } from 'src/filters/all-exception.filter';
       inject: [ConfigService],
       useFactory: getDatabaseConfig,
     }),
+    AuthModule,
     //config postgres
   ],
   controllers: [AppController],
