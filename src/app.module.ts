@@ -11,6 +11,7 @@ import { UsersModule } from 'src/modules/users/users.module';
 import { AuthModule } from 'src/modules/auth/auth.module';
 import { RolesGuard } from 'src/guards/roles.guard';
 import { AuthGuard } from 'src/guards/auth.guard';
+import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { AuthGuard } from 'src/guards/auth.guard';
       useFactory: getDatabaseConfig,
     }),
     AuthModule,
+    CloudinaryModule,
     //config postgres
   ],
   controllers: [AppController],
