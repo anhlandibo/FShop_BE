@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpStatus, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, HttpStatus, UseGuards, Query } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -7,6 +7,7 @@ import { RemoveUserDto } from 'src/modules/users/dto/remove-user.dto';
 import { Roles } from 'src/decorators/role.decorator';
 import { Role } from 'src/constants/role.enum';
 import { RolesGuard } from 'src/guards/roles.guard';
+import { QueryDto } from 'src/dto/query.dto';
 
 @Controller('users')
 export class UsersController {
@@ -20,10 +21,9 @@ export class UsersController {
   // @Roles(Role.Admin)
   // @UseGuards(AuthGuard)
   @Get()
-  findAll() {
-    return this.usersService.findAll();
+  findAll(@Query() query: QueryDto) {
+    return this.usersService.findAll(query);
   }
-
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
     return this.usersService.update(+id, updateUserDto);

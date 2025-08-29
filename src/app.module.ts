@@ -42,6 +42,7 @@ import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
     {
       provide: APP_PIPE,
       useValue: new ValidationPipe({
+        transform: true,
         whitelist: true,
         forbidNonWhitelisted: true,
       }),
