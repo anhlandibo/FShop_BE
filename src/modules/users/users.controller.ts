@@ -3,7 +3,6 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { AuthGuard } from 'src/guards/auth.guard';
-import { RemoveUserDto } from 'src/modules/users/dto/remove-user.dto';
 import { Roles } from 'src/decorators/role.decorator';
 import { Role } from 'src/constants/role.enum';
 import { RolesGuard } from 'src/guards/roles.guard';
@@ -25,12 +24,12 @@ export class UsersController {
     return this.usersService.findAll(query);
   }
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.update(+id, updateUserDto);
+  update(@Param('id') id: number, @Body() updateUserDto: UpdateUserDto) {
+    return this.usersService.update(id, updateUserDto);
   }
 
   @Delete(':id')
-  remove(@Param('id') removeUserDto: RemoveUserDto) {
-    return this.usersService.remove(removeUserDto);
+  remove(@Param('id') id: number) {
+    return this.usersService.remove(id);
   }
 }

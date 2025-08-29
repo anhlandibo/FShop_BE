@@ -5,7 +5,6 @@ import { Like, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { hashPassword } from 'src/utils/hash';
 import { User } from 'src/modules/users/entities/user.entity';
-import { RemoveUserDto } from 'src/modules/users/dto/remove-user.dto';
 import { QueryDto } from 'src/dto/query.dto';
 
 @Injectable()
@@ -56,8 +55,7 @@ export class UsersService {
     return `This action updates a #${id} user`;
   }
 
-  async remove(removeUserDto: RemoveUserDto) {
-    const id = removeUserDto.id
+  async remove(id: number) {
     if (!(await this.usersRepository.findOne({ where: { id: id } })))
       throw new HttpException("Not found user", HttpStatus.NOT_FOUND)
     await this.usersRepository.delete(id)
