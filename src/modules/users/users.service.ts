@@ -20,6 +20,18 @@ export class UsersService {
     })
   }
 
+  async update(id: number, updateUserDto: UpdateUserDto) {
+    const existingEmail = await this.usersRepository.findOne({ where: { email: updateUserDto.email } })
+    if (existingEmail && existingEmail.id !== id)
+      throw new HttpException("Email exists", HttpStatus.CONFLICT)
+    return this.usersRepository.update(id,
+      {
+        email: updateUserDto.email,
+        fullName: updateUserDto.fullName,
+        role: updateUserDto.role,
+      })
+  }
+
   async findByEmail(email: string) {
     const user = await this.usersRepository.findOne({
       where: { email }
@@ -49,10 +61,6 @@ export class UsersService {
       },
       data
     };
-  }
-
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return `This action updates a #${id} user`;
   }
 
   async remove(id: number) {
