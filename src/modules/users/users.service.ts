@@ -24,12 +24,8 @@ export class UsersService {
     const existingEmail = await this.usersRepository.findOne({ where: { email: updateUserDto.email } })
     if (existingEmail && existingEmail.id !== id)
       throw new HttpException("Email exists", HttpStatus.CONFLICT)
-    return this.usersRepository.update(id,
-      {
-        email: updateUserDto.email,
-        fullName: updateUserDto.fullName,
-        role: updateUserDto.role,
-      })
+    console.log(updateUserDto)
+    return this.usersRepository.update(id, updateUserDto)
   }
 
   async findByEmail(email: string) {
