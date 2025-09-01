@@ -1,20 +1,27 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { In, Like, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { hashPassword } from 'src/utils/hash';
+import { hashKey, hashPassword } from 'src/utils/hash';
 import { User } from 'src/modules/users/entities/user.entity';
 import { QueryDto } from 'src/dto/query.dto';
 import { DeleteUsersDto } from 'src/modules/users/dto/delete-users.dto';
+import Redis from 'ioredis';
+import { InjectRedis } from '@nestjs-modules/ioredis';
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectRepository(User) private usersRepository: Repository<User>) { }
+  constructor(
+    @InjectRepository(User) private usersRepository: Repository<User>,
+    @InjectRedis() private readonly redis: Redis
+  ) { }
   async create(createUserDto: CreateUserDto) {
     if (await this.usersRepository.findOne({ where: { email: createUserDto.email } }))
       throw new HttpException("Email exists", HttpStatus.CONFLICT)
     const password = await hashPassword(createUserDto.password)
+
     return this.usersRepository.save({
       ...createUserDto,
       password
@@ -25,7 +32,6 @@ export class UsersService {
     const existingEmail = await this.usersRepository.findOne({ where: { email: updateUserDto.email } })
     if (existingEmail && existingEmail.id !== id)
       throw new HttpException("Email exists", HttpStatus.CONFLICT)
-    console.log(updateUserDto)
     return this.usersRepository.update(id, updateUserDto)
   }
 
@@ -40,6 +46,19 @@ export class UsersService {
 
   async findAll(query: QueryDto) {
     const { page, limit, search, sortBy = 'id', sortOrder = 'DESC' } = query;
+    const redisKey = hashKey('users', query);
+    const cachedData: string | null = await this.redis.get(redisKey)
+    if (cachedData) {
+      console.log("data lay tu redis")
+      return JSON.parse(cachedData) as {
+        pagination: {
+          total: number;
+          page: number | undefined;
+          limit: number | undefined;
+        };
+        data: User[];
+      }
+    }
     const [data, total] = await this.usersRepository.findAndCount({
       where: search
         ? [
@@ -50,7 +69,7 @@ export class UsersService {
       ...(page && limit && { take: limit, skip: (page - 1) * limit }),
       order: { [sortBy]: sortOrder },
     });
-    return {
+    const response = {
       pagination: {
         total,
         page,
@@ -58,6 +77,9 @@ export class UsersService {
       },
       data
     };
+    console.log("data lay tu DB")
+    await this.redis.set(redisKey, JSON.stringify(response), 'EX', 60)
+    return response
   }
 
   async remove(id: number) {

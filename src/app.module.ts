@@ -12,6 +12,8 @@ import { AuthModule } from 'src/modules/auth/auth.module';
 import { RolesGuard } from 'src/guards/roles.guard';
 import { AuthGuard } from 'src/guards/auth.guard';
 import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
+import { RedisModule } from '@nestjs-modules/ioredis';
+import { getRedisConfig } from 'src/configs/redis.config';
 
 @Module({
   imports: [
@@ -22,9 +24,14 @@ import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
       inject: [ConfigService],
       useFactory: getDatabaseConfig,
     }),
+    //config postgres
+    RedisModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: getRedisConfig,
+    }),
+    //config postgres
     AuthModule,
     CloudinaryModule,
-    //config postgres
   ],
   controllers: [AppController],
   providers: [
