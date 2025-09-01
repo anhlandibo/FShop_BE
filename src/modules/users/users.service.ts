@@ -1,11 +1,12 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { Like, Repository } from 'typeorm';
+import { In, Like, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { hashPassword } from 'src/utils/hash';
 import { User } from 'src/modules/users/entities/user.entity';
 import { QueryDto } from 'src/dto/query.dto';
+import { DeleteUsersDto } from 'src/modules/users/dto/delete-users.dto';
 
 @Injectable()
 export class UsersService {
@@ -65,4 +66,21 @@ export class UsersService {
     await this.usersRepository.delete(id)
     return id
   }
+
+  async removeUsers(deleteUsersDto: DeleteUsersDto) {
+    const { ids } = deleteUsersDto;
+
+    const users = await this.usersRepository.find({
+      where: { id: In(ids) }
+    });
+
+    if (!users || users.length === 0) {
+      throw new HttpException("Not found any users", HttpStatus.NOT_FOUND);
+    }
+
+    await this.usersRepository.delete(ids);
+
+    return { deletedIds: ids };
+  }
+
 }
