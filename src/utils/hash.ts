@@ -1,4 +1,6 @@
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
+
 const hashPassword = async (raw: string) => {
     const salt = await bcrypt.genSalt();
     return bcrypt.hash(raw, salt);
@@ -6,4 +8,9 @@ const hashPassword = async (raw: string) => {
 const comparePassword = (raw: string, hashPassword: string) => {
     return bcrypt.compare(raw, hashPassword);
 }
-export { hashPassword, comparePassword }
+function hashKey(prefix: string, obj: any): string {
+    const str = JSON.stringify(obj);
+    const hash = crypto.createHash('md5').update(str).digest('hex');
+    return `${prefix}:${hash}`;
+}
+export { hashPassword, comparePassword, hashKey }
