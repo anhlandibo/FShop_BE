@@ -1,7 +1,15 @@
-import { applyDecorators } from "@nestjs/common";
-import { ApiProperty } from "@nestjs/swagger";
-import { Type } from "class-transformer";
-import { IsString, IsOptional, IsNotEmpty, IsNumber, Max, Min } from "class-validator";
+import { applyDecorators } from '@nestjs/common';
+import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import {
+  IsString,
+  IsOptional,
+  IsNotEmpty,
+  IsNumber,
+  Max,
+  Min,
+  IsBoolean,
+} from 'class-validator';
 
 export const StringOptional = () =>
   applyDecorators(ApiProperty({ required: false }), IsString(), IsOptional());
@@ -15,7 +23,7 @@ export const StringRequired = (name: string) =>
     IsNotEmpty({ message: `${name} can not be empty` }),
   );
 
-  export const NumberOptional = () =>
+export const NumberOptional = () =>
   applyDecorators(
     ApiProperty({ required: false }),
     IsOptional(),
@@ -32,3 +40,6 @@ export const NumberRequired = (name: string, min: number = 0, max?: number) =>
     Min(min),
     ...(max ? [Max(max)] : []),
   );
+
+export const BooleanOptional = () =>
+  applyDecorators(ApiProperty({ required: false }), IsOptional(), IsBoolean());

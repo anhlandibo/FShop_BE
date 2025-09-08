@@ -15,6 +15,7 @@ import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
 import { RedisModule } from '@nestjs-modules/ioredis';
 import { getRedisConfig } from 'src/configs/redis.config';
 import { StartTimingMiddleware } from './middlewares/start-timing.middleware';
+import { CategoriesModule } from './modules/categories/categories.module';
 import path from 'path';
 
 @Module({
@@ -34,6 +35,7 @@ import path from 'path';
     //config postgres
     AuthModule,
     CloudinaryModule,
+    CategoriesModule,
   ],
   controllers: [AppController],
   providers: [

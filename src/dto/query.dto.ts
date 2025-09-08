@@ -1,23 +1,18 @@
 import { Type } from 'class-transformer';
 import { IsOptional, IsNumberString, IsString, IsNumber, IsIn } from 'class-validator';
+import { NumberOptional, StringOptional } from 'src/decorators/dto.decorator';
 
 export class QueryDto {
-    @IsOptional()
-    @Type(() => Number)
-    @IsNumber()
+    @NumberOptional()
     page?: number;
 
-    @Type(() => Number)
-    @IsOptional()
-    @IsNumber()
+    @NumberOptional()
     limit?: number;
 
-    @IsOptional()
-    @IsString()
+    @StringOptional()
     search?: string;
 
-    @IsOptional()
-    @IsString()
+    @StringOptional()
     sortBy?: string;
 
     @IsOptional()
