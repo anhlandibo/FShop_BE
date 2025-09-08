@@ -1,4 +1,4 @@
-import { Module, ValidationPipe } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, RequestMethod, ValidationPipe } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -14,6 +14,8 @@ import { AuthGuard } from 'src/guards/auth.guard';
 import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
 import { RedisModule } from '@nestjs-modules/ioredis';
 import { getRedisConfig } from 'src/configs/redis.config';
+import { StartTimingMiddleware } from './middlewares/start-timing.middleware';
+import path from 'path';
 
 @Module({
   imports: [
@@ -66,4 +68,8 @@ import { getRedisConfig } from 'src/configs/redis.config';
 
   ],
 })
-export class AppModule { }
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(StartTimingMiddleware).forRoutes({path: "*", method: RequestMethod.ALL});
+  }
+ }

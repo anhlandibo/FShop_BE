@@ -7,11 +7,13 @@ export class ResponseDto<T = any> {
     data?: T;
     timestamp: string;
     path: string
-    constructor(stateCode: number, message: string, request: Request, data?: T) {
+    takenTime?: string;
+    constructor(stateCode: number, message: string, takenTime: string, request: Request, data?: T) {
         this.statusCode = stateCode
         this.message = message
         this.data = data
         this.timestamp = convertISODate(new Date().toISOString())
         this.path = request?.url || ''
+        this.takenTime = takenTime
     }
 }

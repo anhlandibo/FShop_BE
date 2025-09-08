@@ -2,7 +2,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { In, Like, Repository } from 'typeorm';
+import { DataSource, In, Like, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { hashKey, hashPassword } from 'src/utils/hash';
 import { User } from 'src/modules/users/entities/user.entity';
@@ -15,7 +15,8 @@ import { InjectRedis } from '@nestjs-modules/ioredis';
 export class UsersService {
   constructor(
     @InjectRepository(User) private usersRepository: Repository<User>,
-    @InjectRedis() private readonly redis: Redis
+    @InjectRedis() private readonly redis: Redis,
+    private dataSource: DataSource,
   ) { }
   async create(createUserDto: CreateUserDto) {
     if (await this.usersRepository.findOne({ where: { email: createUserDto.email } }))
@@ -26,6 +27,38 @@ export class UsersService {
       ...createUserDto,
       password
     })
+  }
+  
+  async createMany(createUsersDto: CreateUserDto[]){
+    const queryRunner = this.dataSource.createQueryRunner();
+
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      const users: User[] = [];
+      for (const dto of createUsersDto) {
+        const existingUser = await queryRunner.manager.findOne(User, {
+          where: {
+            email: dto.email,
+          },
+        });
+        if (existingUser) {
+          throw new HttpException('Email exists', HttpStatus.CONFLICT);
+        }
+        const password = await hashPassword(dto.password);
+        users.push(await queryRunner.manager.save(User, { ...dto, password }));
+      }
+
+      await queryRunner.commitTransaction();
+      return users;
+    } 
+    catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    }
+    finally {
+      await queryRunner.release();
+    }
   }
 
   async update(id: number, updateUserDto: UpdateUserDto) {

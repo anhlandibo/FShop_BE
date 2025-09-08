@@ -13,6 +13,9 @@ export class AllExceptionFilter implements ExceptionFilter {
         const ctx = host.switchToHttp();
         const response = ctx.getResponse<Response>();
         const request = ctx.getRequest<Request>();
+        const startTime = Number(request['startTime']);
+        const endTime = Date.now();
+        const takenTime = `${endTime - startTime}ms`;
         const status =
             exception instanceof HttpException
                 ? exception.getStatus()
@@ -30,6 +33,7 @@ export class AllExceptionFilter implements ExceptionFilter {
             .json(new ResponseDto(
                 status,
                 message,
+                takenTime,
                 request
             ));
     }

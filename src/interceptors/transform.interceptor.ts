@@ -11,9 +11,13 @@ export class TransformInterceptor<T> implements NestInterceptor<T, ResponseDto<T
         const ctx = context.switchToHttp();
         const response: Response = ctx.getResponse(); // response của Express
         const request: Request = ctx.getRequest();
+        const startTime = Number(request['startTime']);
+        const endTime = Date.now();
+        const takenTime = `${endTime - startTime}ms`;
         return next.handle().pipe(map(data => (new ResponseDto(
             response.statusCode,
             "success",
+            takenTime,
             request,
             data as T
         ))));

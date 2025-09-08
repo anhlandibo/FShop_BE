@@ -1,26 +1,26 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: movie_postgres
+    container_name: fshop_postgres
     restart: always
     environment:
       POSTGRES_USER: username
       POSTGRES_PASSWORD: 123456
-      POSTGRES_DB: movie_db
+      POSTGRES_DB: fshop_db
     ports:
       - "5432:5432"
     volumes:
-      - movie_postgres_data:/var/lib/postgresql/data
+      - fshop_postgres_data:/var/lib/postgresql/data
 
   redis:
     image: redis:7-alpine
-    container_name: movie_redis
+    container_name: fshop_redis
     restart: always
     ports:
       - "6379:6379"
     volumes:
-      - movie_redis_data:/data
+      - fshop_redis_data:/data
 
 volumes:
-  movie_postgres_data:
-  movie_redis_data:
+  fshop_postgres_data:
+  fshop_redis_data:

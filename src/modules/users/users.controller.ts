@@ -18,6 +18,10 @@ export class UsersController {
   create(@Body() createUserDto: CreateUserDto) {
     return this.usersService.create(createUserDto);
   }
+  @Post('create-mutiple')
+  createMultiple(@Body() createUsersDto: CreateUserDto[]) {
+    return this.usersService.createMany(createUsersDto);
+  }
 
   // @Roles(Role.Admin)
   // @UseGuards(AuthGuard)
