@@ -134,7 +134,7 @@ export class UsersService {
         throw new HttpException('Not found any users', HttpStatus.NOT_FOUND);
       }
 
-      await manager.delete(User, ids);
+      await manager.update(User, {id: In(ids)}, { isActive: false });
 
       return { deletedIds: ids };
     });

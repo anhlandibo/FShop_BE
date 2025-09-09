@@ -152,7 +152,7 @@ export class CategoriesService {
         throw new HttpException('Not found any categories', HttpStatus.NOT_FOUND);
       }
 
-      await manager.delete(Category, ids);
+      await manager.update(Category, {id: In(ids)}, { isActive: false });
 
       return { deletedIds: ids };
     });

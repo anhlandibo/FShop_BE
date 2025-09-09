@@ -24,7 +24,7 @@ export class CategoriesController {
     return this.categoriesService.remove(id);
   }
 
-  @Delete("multiple")
+  @Post("multiple")
   removeMultiple(@Body() deleteCategoriesDto: DeleteCategoriesDto) {
     return this.categoriesService.removeMultiple(deleteCategoriesDto);
   }
