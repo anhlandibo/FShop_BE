@@ -3,11 +3,12 @@ import { CategoriesService } from './categories.service';
 import { CategoriesController } from './categories.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Category } from './entities/category.entity';
+import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 
 @Module({
   controllers: [CategoriesController],
   providers: [CategoriesService],
   exports: [CategoriesService],
-  imports: [TypeOrmModule.forFeature([Category])]
+  imports: [TypeOrmModule.forFeature([Category]), CloudinaryModule]
 })
 export class CategoriesModule {}

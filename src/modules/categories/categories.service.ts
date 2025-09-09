@@ -11,6 +11,7 @@ import { QueryDto } from 'src/dto/query.dto';
 import { hashKey } from 'src/utils/hash';
 import { User } from '../users/entities/user.entity';
 import { DeleteCategoriesDto } from './dto/delete-categories.dto';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Injectable()
 export class CategoriesService {
@@ -19,14 +20,24 @@ export class CategoriesService {
     private categoryRepository: Repository<Category>,
     @InjectRedis() private readonly redis: Redis,
     private dataSource: DataSource,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
-  async create(createCategoryDto: CreateCategoryDto) {
+  async create(createCategoryDto: CreateCategoryDto, file?: Express.Multer.File) {
     const alreadyExist = await this.categoryRepository.findOne({
       where: { name: createCategoryDto.name },
     });
     if (alreadyExist) {
       throw new HttpException('Category already exist', HttpStatus.CONFLICT);
+    }
+
+    let imageUrl: string | undefined;
+    let publicId: string | undefined;
+
+    if (file) {
+      const uploaded = await this.cloudinaryService.uploadFile(file);
+      imageUrl = uploaded?.secure_url;
+      publicId = uploaded?.public_id;
     }
 
     let parentExist: Category | null = null;
@@ -43,21 +54,40 @@ export class CategoriesService {
     }
 
     const category = this.categoryRepository.create({
-      name: createCategoryDto.name,
+      ...createCategoryDto,
+      imageUrl,
+      publicId,
       ...(parentExist ? { parent: parentExist } : {}),
     });
 
     return this.categoryRepository.save(category);
   }
 
-  async update(id: number, updateCategoryDto: UpdateCategoryDto) {
+  private async getDescendantIds(id: number): Promise<number[]> {
+    const children = await this.categoryRepository.find({
+      where: { parent_id: id },
+      select: ['id'],
+    });
+
+    if (children.length === 0) {
+      return [];
+    }
+
+    let descendantIds = children.map(child => child.id);
+    for (const childId of descendantIds) {
+      descendantIds = descendantIds.concat(await this.getDescendantIds(childId));
+    }
+    return descendantIds;
+  }
+
+  async update(id: number, updateCategoryDto: UpdateCategoryDto, file?: Express.Multer.File) {
     const category = await this.categoryRepository.findOne({ where: { id } });
     if (!category) {
       throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
     }
 
     let parentExist: Category | null = null;
-    if (updateCategoryDto.parentId) {
+    if (updateCategoryDto.parentId !== null) {
       parentExist = await this.categoryRepository.findOne({
         where: { id: updateCategoryDto.parentId },
       });
@@ -73,9 +103,25 @@ export class CategoriesService {
           HttpStatus.BAD_REQUEST,
         );
       }
-    }
 
-    return await this.categoryRepository.update(id, updateCategoryDto);
+      const descendantIds = await this.getDescendantIds(id);
+      if (descendantIds.includes(parentExist.id)) {
+        throw new HttpException(
+          'Parent category cannot be a descendant of the current category',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+    Object.assign(category, updateCategoryDto); // merge
+    if (file) {
+      if (category.publicId) {
+        await this.cloudinaryService.deleteFile(category.publicId).catch(() => null);
+      }
+      const uploaded = await this.cloudinaryService.uploadFile(file);
+      category.imageUrl = uploaded?.secure_url;
+      category.publicId = uploaded?.public_id;
+    }
+    return await this.categoryRepository.update(id, category);
   }
 
   async remove(id: number) {
@@ -95,11 +141,11 @@ export class CategoriesService {
       );
     }
 
-    await this.categoryRepository.delete(id);
+    await this.categoryRepository.update(id, { isActive: false });
 
     return {
       message: 'Category deleted successfully',
-      id,
+      deleteId: id,
     };
   }
 

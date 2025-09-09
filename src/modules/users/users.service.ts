@@ -10,6 +10,7 @@ import { QueryDto } from 'src/dto/query.dto';
 import { DeleteUsersDto } from 'src/modules/users/dto/delete-users.dto';
 import Redis from 'ioredis';
 import { InjectRedis } from '@nestjs-modules/ioredis';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Injectable()
 export class UsersService {
@@ -17,8 +18,9 @@ export class UsersService {
     @InjectRepository(User) private usersRepository: Repository<User>,
     @InjectRedis() private readonly redis: Redis,
     private dataSource: DataSource,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
-  async create(createUserDto: CreateUserDto) {
+  async create(createUserDto: CreateUserDto, file?: Express.Multer.File) {
     if (
       await this.usersRepository.findOne({
         where: { email: createUserDto.email },
@@ -27,21 +29,28 @@ export class UsersService {
       throw new HttpException('Email exists', HttpStatus.CONFLICT);
     const password = await hashPassword(createUserDto.password);
 
+    let imageUrl: string | undefined;
+    let publicId: string | undefined;
+
+    if (file) {
+      const uploaded = await this.cloudinaryService.uploadFile(file);
+      imageUrl = uploaded?.secure_url;
+      publicId = uploaded?.public_id;
+    }
+
     return this.usersRepository.save({
       ...createUserDto,
+      avatar: imageUrl,
+      publicId,
       password,
     });
   }
 
   async createMany(createUsersDto: CreateUserDto[]) {
-    const queryRunner = this.dataSource.createQueryRunner();
-
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-    try {
+    return this.dataSource.manager.transaction(async (manager) => {
       const users: User[] = [];
       for (const dto of createUsersDto) {
-        const existingUser = await queryRunner.manager.findOne(User, {
+        const existingUser = await manager.findOne(User, {
           where: {
             email: dto.email,
           },
@@ -50,26 +59,35 @@ export class UsersService {
           throw new HttpException('Email exists', HttpStatus.CONFLICT);
         }
         const password = await hashPassword(dto.password);
-        users.push(await queryRunner.manager.save(User, { ...dto, password }));
+        users.push(await manager.save(User, { ...dto, password }));
       }
-
-      await queryRunner.commitTransaction();
       return users;
-    } catch (err) {
-      await queryRunner.rollbackTransaction();
-      throw err;
-    } finally {
-      await queryRunner.release();
-    }
+    });
   }
 
-  async update(id: number, updateUserDto: UpdateUserDto) {
+  async update(id: number, updateUserDto: UpdateUserDto, file?: Express.Multer.File) {
     const existingEmail = await this.usersRepository.findOne({
       where: { email: updateUserDto.email },
     });
     if (existingEmail && existingEmail.id !== id)
       throw new HttpException('Email exists', HttpStatus.CONFLICT);
-    return this.usersRepository.update(id, updateUserDto);
+    const existingUser = await this.usersRepository.findOne({
+      where: { id },
+    });
+    if (!existingUser) throw new HttpException('Not found user', HttpStatus.NOT_FOUND);
+    Object.assign(existingUser, updateUserDto); // merge
+    console.log('user: ', existingUser)
+    if (file) {
+      if (existingUser.publicId) {
+        await this.cloudinaryService.deleteFile(existingUser.publicId).catch(() => null);
+      }
+      const uploaded = await this.cloudinaryService.uploadFile(file);
+      existingUser.avatar = uploaded?.secure_url;
+      existingUser.publicId = uploaded?.public_id;
+    }
+    console.log('user: ', existingUser)
+
+    return this.usersRepository.update(id, existingUser);
   }
 
   async findByEmail(email: string) {
@@ -116,10 +134,16 @@ export class UsersService {
   }
 
   async remove(id: number) {
-    if (!(await this.usersRepository.findOne({ where: { id: id } })))
-      throw new HttpException('Not found user', HttpStatus.NOT_FOUND);
-    await this.usersRepository.delete(id);
-    return id;
+    const result = await this.usersRepository.update(id, { isActive: false });
+
+    if (result.affected === 0) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+
+    return {
+      message: 'User soft deleted successfully',
+      deletedId: id,
+    };
   }
 
   async removeUsers(deleteUsersDto: DeleteUsersDto) {

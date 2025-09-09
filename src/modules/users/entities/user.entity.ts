@@ -9,6 +9,10 @@ export class User {
     @Column({ nullable: true })
     avatar: string
 
+    @Column({ nullable: true })
+    publicId: string
+
+
     @Column()
     fullName: string
 

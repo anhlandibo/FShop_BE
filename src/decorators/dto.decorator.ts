@@ -1,6 +1,6 @@
 import { applyDecorators } from '@nestjs/common';
 import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsString,
   IsOptional,
@@ -42,4 +42,4 @@ export const NumberRequired = (name: string, min: number = 0, max?: number) =>
   );
 
 export const BooleanOptional = () =>
-  applyDecorators(ApiProperty({ required: false }), IsOptional(), IsBoolean());
+  applyDecorators(ApiProperty({ required: false }), IsOptional(), IsBoolean(), Transform(({ value }) => value === 'true' || value === '1'));

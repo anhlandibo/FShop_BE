@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpStatus, UseGuards, Query, Req } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, HttpStatus, UseGuards, Query, Req, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -9,16 +9,18 @@ import { RolesGuard } from 'src/guards/roles.guard';
 import { QueryDto } from 'src/dto/query.dto';
 import { Request } from 'express';
 import { DeleteUsersDto } from 'src/modules/users/dto/delete-users.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) { }
 
   @Post()
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+  @UseInterceptors(FileInterceptor('avatar'))
+  create(@Body() createUserDto: CreateUserDto, @UploadedFile() file?: Express.Multer.File) {
+    return this.usersService.create(createUserDto, file);
   }
-  @Post('create-mutiple')
+  @Post('create-multiple')
   createMultiple(@Body() createUsersDto: CreateUserDto[]) {
     return this.usersService.createMany(createUsersDto);
   }
@@ -32,8 +34,9 @@ export class UsersController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: number, @Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.update(id, updateUserDto);
+  @UseInterceptors(FileInterceptor('avatar'))
+  update(@Param('id') id: number, @Body() updateUserDto: UpdateUserDto, @UploadedFile() file?: Express.Multer.File) {
+    return this.usersService.update(id, updateUserDto, file);
   }
 
   @Delete(':id')

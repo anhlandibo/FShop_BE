@@ -1,18 +1,20 @@
-import { Body, Controller, Delete, Get, HttpException, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpException, HttpStatus, Param, Patch, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { BrandsService } from './brands.service';
 import { create } from 'domain';
 import { CreateBrandDto } from './dto/create-brand.dto';
 import { QueryDto } from 'src/dto/query.dto';
 import { UpdateBrandDto } from './dto/update-brand.dto';
 import { DeleteBrandsDto } from './dto/delete-brands.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('brands')
 export class BrandsController {
   constructor(private readonly brandsService: BrandsService) {}
 
   @Post()
-  create(@Body() createBrandDto: CreateBrandDto) {
-    return this.brandsService.create(createBrandDto);
+  @UseInterceptors(FileInterceptor('file'))
+  create(@Body() createBrandDto: CreateBrandDto, @UploadedFile() file?: Express.Multer.File) {
+    return this.brandsService.create(createBrandDto, file);
   }
 
   @Get()
@@ -21,8 +23,9 @@ export class BrandsController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: number, @Body() updateBrandDto: UpdateBrandDto) {
-    return this.brandsService.update(id, updateBrandDto);
+  @UseInterceptors(FileInterceptor('file'))
+  update(@Param('id') id: number, @Body() updateBrandDto: UpdateBrandDto, @UploadedFile() file?: Express.Multer.File) {
+    return this.brandsService.update(id, updateBrandDto, file);
   }
 
   @Delete(':id')

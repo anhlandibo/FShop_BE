@@ -12,6 +12,9 @@ export class Brand {
   imageUrl: string;
 
   @Column({ nullable: true })
+  publicId: string;
+
+  @Column({ nullable: true })
   description: string;
 
   @Column({ default: true })
