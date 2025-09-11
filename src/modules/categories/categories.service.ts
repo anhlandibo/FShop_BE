@@ -1,6 +1,6 @@
 /* eslint-disable no-prototype-builtins */
 import { InjectRedis } from '@nestjs-modules/ioredis';
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, UseGuards } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import Redis from 'ioredis';
 import { Repository, DataSource, Like, In } from 'typeorm';
@@ -79,7 +79,7 @@ export class CategoriesService {
     if (!category) {
       throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
     }
-
+    
     if (updateCategoryDto.parentId !== null){
       const parentExist = await this.categoryRepository.findOne({
           where: { id: updateCategoryDto.parentId },
@@ -147,6 +147,7 @@ export class CategoriesService {
     };
   }
 
+  @UseGuards()
   async findAll(query: QueryDto) {
     const { page, limit, search, sortBy = 'id', sortOrder = 'DESC' } = query;
     const redisKey = hashKey('categories', query);

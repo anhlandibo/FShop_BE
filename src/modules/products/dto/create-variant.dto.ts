@@ -7,8 +7,8 @@ export class CreateProductVariantDto {
   @StringOptional()
   color?: string;
 
-  @StringOptional()
-  imageUrl?: string;
+  // @StringOptional()
+  // imageUrl?: string;
 
   @NumberRequired('Quantity')
   quantity: number;

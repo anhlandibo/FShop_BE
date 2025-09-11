@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -12,6 +13,7 @@ import { QueryDto } from 'src/dto/query.dto';
 import { hashKey } from 'src/utils/hash';
 import { Brand } from '../brands/entities/brand.entity';
 import { Category } from '../categories/entities/category.entity';
+import { plainToInstance } from 'class-transformer';
 
 @Injectable()
 export class ProductsService {
@@ -30,74 +32,89 @@ export class ProductsService {
   ) {}
 
   async create(
-    createProductDto: CreateProductDto,
-    images: Array<Express.Multer.File>,
-  ) {
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    try {
-      if (
-        await this.productRepository.findOne({
-          where: { name: createProductDto.name },
-        })
-      )
-        throw new HttpException(
-          'Product name already exist',
-          HttpStatus.CONFLICT,
-        );
-      const existingBrand = await this.brandRepository.findOne({
-        where: { id: createProductDto.brandId },
-      });
-      if (!existingBrand)
-        throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
-      const existingCategory = await this.categoryRepository.findOne({
-        where: { id: createProductDto.categoryId },
-      });
-      if (!existingCategory)
-        throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
-
-      const newProduct = queryRunner.manager.create(Product, createProductDto);
-      const savedProduct = await queryRunner.manager.save(newProduct);
-
-      // Variants
-      const variants = createProductDto.variants.map((variantDto) => {
-        return this.productVariantRepository.create({
-          ...variantDto,
-          product: savedProduct,
-        });
-      });
-      await queryRunner.manager.save(variants);
-
-      // Images
-      const imageUrls = await Promise.all(
-        images.map(async (image) => {
-          const uploaded = await this.cloudinaryService.uploadFile(image);
-          return uploaded;
-        }),
-      )
-      const productImages = imageUrls.map((result) =>
-        this.productImageRepository.create({
-          imageUrl: result?.secure_url,
-          product: savedProduct,
-        }),
+  createProductDto: CreateProductDto,
+  images: Array<Express.Multer.File>,
+  variantImages: Array<Express.Multer.File>,
+) {
+  return await this.dataSource.transaction(async (manager) => {
+    // Check trùng tên
+    if (
+      await manager.findOne(Product, {
+        where: { name: createProductDto.name },
+      })
+    ) {
+      throw new HttpException(
+        'Product name already exist',
+        HttpStatus.CONFLICT,
       );
-
-      await queryRunner.manager.save(productImages);
-      await queryRunner.commitTransaction();
-      return {
-        ...savedProduct,
-        variants,
-        images: productImages,
-      }
-    } catch (err) {
-      await queryRunner.rollbackTransaction();
-      throw err;
-    } finally {
-      await queryRunner.release();
     }
-  }
+
+    // Check brand
+    const existingBrand = await manager.findOne(Brand, {
+      where: { id: createProductDto.brandId },
+    });
+    if (!existingBrand) {
+      throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
+    }
+
+    // Check category
+    const existingCategory = await manager.findOne(Category, {
+      where: { id: createProductDto.categoryId },
+    });
+    if (!existingCategory) {
+      throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
+    }
+
+    // Tạo product
+    const newProduct = manager.create(Product, createProductDto);
+    const savedProduct = await manager.save(newProduct);
+
+    // Variants + Images
+    const variants: ProductVariant[] = [];
+    for (let i = 0; i < createProductDto.variants.length; i++) {
+      const variantDto = createProductDto.variants[i];
+      let imageUrl: string | undefined = undefined;
+
+      if (variantImages[i]) {
+        const uploaded = await this.cloudinaryService.uploadFile(
+          variantImages[i],
+        );
+        imageUrl = uploaded?.secure_url;
+      }
+
+      const variant = manager.create(ProductVariant, {
+        ...variantDto,
+        product: savedProduct,
+        imageUrl,
+      });
+      variants.push(variant);
+    }
+    await manager.save(variants);
+
+    // Product images
+    const imageUrls = await Promise.all(
+      images.map(async (image) => {
+        const uploaded = await this.cloudinaryService.uploadFile(image);
+        return uploaded?.secure_url;
+      }),
+    );
+
+    const productImages = imageUrls.map((url) =>
+      manager.create(ProductImage, {
+        imageUrl: url,
+        product: savedProduct,
+      }),
+    );
+    await manager.save(productImages);
+
+    return plainToInstance(Product, {
+      ...savedProduct,
+      variants,
+      images: productImages,
+    });
+  });
+}
+
 
   async findAll(query: QueryDto) {
     const { page, limit, search, sortBy = 'id', sortOrder = 'DESC' } = query;

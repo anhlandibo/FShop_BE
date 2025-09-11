@@ -25,8 +25,8 @@ export class UsersController {
     return this.usersService.createMany(createUsersDto);
   }
 
-  // @Roles(Role.Admin)
-  // @UseGuards(AuthGuard)
+  @Roles(Role.Admin)
+  @UseGuards(AuthGuard)
   @Get()
   findAll(@Query() query: QueryDto, @Req() request: Request) {
     console.log(request.cookies);
