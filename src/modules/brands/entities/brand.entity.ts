@@ -1,3 +1,4 @@
+import { Product } from "src/modules/products/entities/product.entity";
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
 @Entity()
@@ -25,4 +26,7 @@ export class Brand {
   
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @OneToMany(() => Product, product => product.brand)
+  products: Product[];
 }

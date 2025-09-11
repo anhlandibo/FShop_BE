@@ -17,6 +17,7 @@ import { getRedisConfig } from 'src/configs/redis.config';
 import { StartTimingMiddleware } from './middlewares/start-timing.middleware';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { BrandsModule } from './modules/brands/brands.module';
+import { ProductsModule } from './modules/products/products.module';
 import path from 'path';
 
 @Module({
@@ -38,6 +39,7 @@ import path from 'path';
     CloudinaryModule,
     CategoriesModule,
     BrandsModule,
+    ProductsModule,
   ],
   controllers: [AppController],
   providers: [

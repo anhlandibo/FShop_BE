@@ -85,8 +85,6 @@ export class UsersService {
       existingUser.avatar = uploaded?.secure_url;
       existingUser.publicId = uploaded?.public_id;
     }
-    console.log('user: ', existingUser)
-
     return this.usersRepository.update(id, existingUser);
   }
 
