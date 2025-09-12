@@ -7,6 +7,8 @@ import { JwtService } from '@nestjs/jwt';
 import { UsersService } from 'src/modules/users/users.service';
 import { RefreshTokenDto } from './dto/refresh-dto';
 import { ConfigService } from '@nestjs/config';
+import { InjectRedis } from '@nestjs-modules/ioredis';
+import Redis from 'ioredis';
 
 @Injectable()
 export class AuthService {
@@ -14,6 +16,7 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private readonly configService: ConfigService,
+    @InjectRedis() private readonly redis: Redis,
   ) {}
   async login(loginAuthDto: LoginAuthDto) {
     // check credential
