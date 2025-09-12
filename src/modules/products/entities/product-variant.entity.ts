@@ -23,6 +23,9 @@ export class ProductVariant {
   @Column({ nullable: true })
   imageUrl: string;
 
+  @Column({ nullable: true })
+  publicId: string;
+
   @Column({ default: 0 })
   quantity: number;
 

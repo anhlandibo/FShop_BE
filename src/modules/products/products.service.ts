@@ -71,37 +71,48 @@ export class ProductsService {
 
     // Variants + Images
     const variants: ProductVariant[] = [];
-    for (let i = 0; i < createProductDto.variants.length; i++) {
-      const variantDto = createProductDto.variants[i];
-      let imageUrl: string | undefined = undefined;
+    if (createProductDto.variants && createProductDto.variants.length > 0) {
+      for (let i = 0; i < createProductDto.variants.length; i++) {
+        const variantDto = createProductDto.variants[i];
+        let imageUrl: string | undefined = undefined;
+        let publicId: string | undefined = undefined;
 
-      if (variantImages[i]) {
-        const uploaded = await this.cloudinaryService.uploadFile(
-          variantImages[i],
-        );
-        imageUrl = uploaded?.secure_url;
+        if (variantImages[i]) {
+          const uploaded = await this.cloudinaryService.uploadFile(
+            variantImages[i],
+          );
+          imageUrl = uploaded?.secure_url;
+          publicId = uploaded?.public_id;
+        }
+
+        const variant = manager.create(ProductVariant, {
+          ...variantDto,
+          product: savedProduct,
+          imageUrl,
+          publicId,
+        });
+        variants.push(variant);
       }
-
-      const variant = manager.create(ProductVariant, {
-        ...variantDto,
+    }
+    else {
+      const defaultVariant = manager.create(ProductVariant, {
+        size: 'Default',
+        color: 'Default',
         product: savedProduct,
-        imageUrl,
-      });
-      variants.push(variant);
+        price: savedProduct.price,
+      })
     }
     await manager.save(variants);
 
     // Product images
-    const imageUrls = await Promise.all(
-      images.map(async (image) => {
-        const uploaded = await this.cloudinaryService.uploadFile(image);
-        return uploaded?.secure_url;
-      }),
+    const uploads = await Promise.all(
+      images.map((image) => this.cloudinaryService.uploadFile(image))
     );
 
-    const productImages = imageUrls.map((url) =>
+    const productImages = uploads.map((uploaded) =>
       manager.create(ProductImage, {
-        imageUrl: url,
+        imageUrl: uploaded?.secure_url,
+        publicId: uploaded?.public_id,
         product: savedProduct,
       }),
     );

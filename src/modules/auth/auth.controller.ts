@@ -1,8 +1,10 @@
-import { Controller, Post, Body, Res } from '@nestjs/common';
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+import { Controller, Post, Body, Res, Get, Req, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginAuthDto } from './dto/login-auth.dto';
 import { Response } from 'express';
 import { RefreshTokenDto } from './dto/refresh-dto';
+import { AuthGuard } from 'src/guards/auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -29,6 +31,12 @@ export class AuthController {
   @Post('refresh')
   async refresh(@Body() refreshTokenDto: RefreshTokenDto) {
     return this.authService.refresh(refreshTokenDto.refreshToken);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('me')
+  me(@Req() req: Request){
+    return req['user'];
   }
 
 }

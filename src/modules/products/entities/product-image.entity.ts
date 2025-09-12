@@ -10,6 +10,9 @@ export class ProductImage {
   @Column()
   imageUrl: string;
 
+  @Column({ nullable: true })
+  publicId: string;
+
   @ManyToOne(() => Product, (product) => product.images)
   @Exclude()
   product: Product;
