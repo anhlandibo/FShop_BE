@@ -28,7 +28,7 @@ export class AuthService {
     if (!isMatch)
       throw new HttpException('Bad credential', HttpStatus.UNAUTHORIZED);
     //generate JWT
-    return this.generateTokens(user.id, user.email, user.role);
+    return this.generateTokens(user.id, user.email, user.role, user.cart.id);
   }
 
   async refresh(refreshToken: string) {
@@ -36,15 +36,15 @@ export class AuthService {
       const payload = await this.jwtService.verifyAsync(refreshToken, {
         secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
       });
-      return this.generateTokens(payload.sub, payload.username, payload.role);
+      return this.generateTokens(payload.sub, payload.username, payload.role, payload.cartId);
     } catch(err) {
       console.log(err)
       throw new HttpException('Invalid refresh token', HttpStatus.UNAUTHORIZED);
     }
   }
 
-  private async generateTokens(userId: number, email: string, role: string) {
-    const payload = { sub: userId, username: email, role };
+  private async generateTokens(userId: number, email: string, role: string, cartId: number) {
+    const payload = { sub: userId, username: email, role, cartId };
 
     const access_token = await this.jwtService.signAsync(payload, {
       secret: this.configService.get<string>('JWT_SECRET'),

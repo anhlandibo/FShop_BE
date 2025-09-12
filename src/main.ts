@@ -14,7 +14,7 @@ async function bootstrap() {
   });
   // prefix API
   app.setGlobalPrefix('api/v1');
-  // swagger 
+  // swagger
   const config = new DocumentBuilder()
     .setTitle('Fashion Shop API')
     .setDescription('Build APIs cho fashion shop website')
@@ -23,7 +23,7 @@ async function bootstrap() {
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/v1/docs', app, documentFactory);
   const logger = new Logger('bootstrap');
-  const port = process.env.PORT ?? 3000;
+  const port = process.env.PORT ?? 4000;
   await app.listen(port);
   logger.log(`Server is running on port ${port}`);
   logger.log(`Swagger is running on http://localhost:${port}/api/v1/docs`);

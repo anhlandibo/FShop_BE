@@ -11,6 +11,7 @@ import { DeleteUsersDto } from 'src/modules/users/dto/delete-users.dto';
 import Redis from 'ioredis';
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { CartsService } from '../carts/carts.service';
 
 @Injectable()
 export class UsersService {
@@ -19,6 +20,7 @@ export class UsersService {
     @InjectRedis() private readonly redis: Redis,
     private dataSource: DataSource,
     private readonly cloudinaryService: CloudinaryService,
+    private readonly cartService: CartsService
   ) {}
   async create(createUserDto: CreateUserDto, file?: Express.Multer.File) {
     if (
@@ -37,13 +39,15 @@ export class UsersService {
       imageUrl = uploaded?.secure_url;
       publicId = uploaded?.public_id;
     }
-
-    return this.usersRepository.save({
+    const user = this.usersRepository.create({
       ...createUserDto,
       avatar: imageUrl,
       publicId,
       password,
     });
+    await this.usersRepository.save(user);
+    await this.cartService.create({ userId: user.id });
+    return user;
   }
 
   async createMany(createUsersDto: CreateUserDto[]) {
@@ -65,7 +69,11 @@ export class UsersService {
     });
   }
 
-  async update(id: number, updateUserDto: UpdateUserDto, file?: Express.Multer.File) {
+  async update(
+    id: number,
+    updateUserDto: UpdateUserDto,
+    file?: Express.Multer.File,
+  ) {
     const existingEmail = await this.usersRepository.findOne({
       where: { email: updateUserDto.email },
     });
@@ -74,12 +82,15 @@ export class UsersService {
     const existingUser = await this.usersRepository.findOne({
       where: { id },
     });
-    if (!existingUser) throw new HttpException('Not found user', HttpStatus.NOT_FOUND);
+    if (!existingUser)
+      throw new HttpException('Not found user', HttpStatus.NOT_FOUND);
     Object.assign(existingUser, updateUserDto); // merge
-    console.log('user: ', existingUser)
+    console.log('user: ', existingUser);
     if (file) {
       if (existingUser.publicId) {
-        await this.cloudinaryService.deleteFile(existingUser.publicId).catch(() => null);
+        await this.cloudinaryService
+          .deleteFile(existingUser.publicId)
+          .catch(() => null);
       }
       const uploaded = await this.cloudinaryService.uploadFile(file);
       existingUser.avatar = uploaded?.secure_url;
@@ -91,6 +102,7 @@ export class UsersService {
   async findByEmail(email: string) {
     const user = await this.usersRepository.findOne({
       where: { email },
+      relations: ['cart'],
     });
     if (!user) throw new HttpException('Not found user', HttpStatus.NOT_FOUND);
     return user;
@@ -156,7 +168,7 @@ export class UsersService {
         throw new HttpException('Not found any users', HttpStatus.NOT_FOUND);
       }
 
-      await manager.update(User, {id: In(ids)}, { isActive: false });
+      await manager.update(User, { id: In(ids) }, { isActive: false });
 
       return { deletedIds: ids };
     });

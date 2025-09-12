@@ -1,4 +1,10 @@
-import { MiddlewareConsumer, Module, NestModule, RequestMethod, ValidationPipe } from '@nestjs/common';
+import {
+  MiddlewareConsumer,
+  Module,
+  NestModule,
+  RequestMethod,
+  ValidationPipe,
+} from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -19,12 +25,13 @@ import { CategoriesModule } from './modules/categories/categories.module';
 import { BrandsModule } from './modules/brands/brands.module';
 import { ProductsModule } from './modules/products/products.module';
 import { SeedModule } from './modules/seed/seed.module';
+import { CartsModule } from './modules/carts/carts.module';
 import path from 'path';
 
 @Module({
   imports: [
     UsersModule,
-    ConfigModule.forRoot({ isGlobal: true, }),
+    ConfigModule.forRoot({ isGlobal: true }),
     //use module globally
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
@@ -42,6 +49,7 @@ import path from 'path';
     BrandsModule,
     ProductsModule,
     SeedModule,
+    CartsModule,
   ],
   controllers: [AppController],
   providers: [
@@ -73,11 +81,12 @@ import path from 'path';
     //   provide: APP_GUARD,
     //   useClass: RolesGuard,
     // },
-
   ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(StartTimingMiddleware).forRoutes({path: "*", method: RequestMethod.ALL});
+    consumer
+      .apply(StartTimingMiddleware)
+      .forRoutes({ path: '*', method: RequestMethod.ALL });
   }
- }
+}
