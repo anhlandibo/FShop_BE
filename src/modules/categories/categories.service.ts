@@ -20,34 +20,19 @@ export class CategoriesService {
     @InjectRedis() private readonly redis: Redis,
     private dataSource: DataSource,
     private readonly cloudinaryService: CloudinaryService,
-  ) {}
+  ) { }
 
-  async create(
-    createCategoryDto: CreateCategoryDto,
-    file?: Express.Multer.File,
-  ) {
-    const alreadyExist = await this.categoryRepository.findOne({
-      where: { name: createCategoryDto.name },
-    });
-    if (alreadyExist) {
+  async create(createCategoryDto: CreateCategoryDto, file?: Express.Multer.File) {
+    if (await this.categoryRepository.findOne({ where: { name: createCategoryDto.name } }))
       throw new HttpException('Category already exist', HttpStatus.CONFLICT);
-    }
     let parentExist: Category | null = null;
     if (createCategoryDto.parentId) {
-      parentExist = await this.categoryRepository.findOne({
-        where: { id: createCategoryDto.parentId },
-      });
+      parentExist = await this.categoryRepository.findOne({ where: { id: createCategoryDto.parentId } });
       if (!parentExist) {
-        throw new HttpException(
-          'Parent category not found',
-          HttpStatus.NOT_FOUND,
-        );
+        throw new HttpException('Parent category not found', HttpStatus.NOT_FOUND);
       }
       if (parentExist.parentId !== null) {
-        throw new HttpException(
-          'Cannot create a grandchild category. Maximum two levels of hierarchy are allowed.',
-          HttpStatus.BAD_REQUEST,
-        );
+        throw new HttpException('Cannot create a grandchild category. Maximum two levels of hierarchy are allowed.', HttpStatus.BAD_REQUEST);
       }
     }
 
@@ -79,30 +64,30 @@ export class CategoriesService {
     if (!category) {
       throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
     }
-    
-    if (updateCategoryDto.parentId !== null){
+
+    if (updateCategoryDto.parentId !== null) {
       const parentExist = await this.categoryRepository.findOne({
-          where: { id: updateCategoryDto.parentId },
-        });
-        if (!parentExist) {
-          throw new HttpException(
-            'Parent category not found',
-            HttpStatus.NOT_FOUND,
-          );
-        }
-        if (parentExist.id === id) {
-          throw new HttpException(
-            'Category cannot be its own parent',
-            HttpStatus.BAD_REQUEST,
-          );
-        }
-        if (parentExist.parentId !== null) {
-          throw new HttpException(
-            'Cannot create a grandchild category. Maximum two levels of hierarchy are allowed.',
-            HttpStatus.BAD_REQUEST,
-          );
-        }
-        category.parentId = parentExist.id;
+        where: { id: updateCategoryDto.parentId },
+      });
+      if (!parentExist) {
+        throw new HttpException(
+          'Parent category not found',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+      if (parentExist.id === id) {
+        throw new HttpException(
+          'Category cannot be its own parent',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (parentExist.parentId !== null) {
+        throw new HttpException(
+          'Cannot create a grandchild category. Maximum two levels of hierarchy are allowed.',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      category.parentId = parentExist.id;
     }
 
     Object.assign(category, updateCategoryDto);

@@ -8,7 +8,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('categories')
 export class CategoriesController {
-  constructor(private readonly categoriesService: CategoriesService) {}
+  constructor(private readonly categoriesService: CategoriesService) { }
 
   @Post()
   @UseInterceptors(FileInterceptor('file'))
@@ -27,7 +27,7 @@ export class CategoriesController {
     return this.categoriesService.remove(id);
   }
 
-  @Post("multiple")
+  @Post("remove-multiple")
   removeMultiple(@Body() deleteCategoriesDto: DeleteCategoriesDto) {
     return this.categoriesService.removeMultiple(deleteCategoriesDto);
   }

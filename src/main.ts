@@ -9,7 +9,7 @@ async function bootstrap() {
   // somewhere in your initialization file
   app.use(cookieParser());
   app.enableCors({
-    origin: ['http://localhost:3000'],
+    origin: [process.env.FE_URL],
     credentials: true,
   });
   // prefix API
@@ -23,7 +23,7 @@ async function bootstrap() {
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/v1/docs', app, documentFactory);
   const logger = new Logger('bootstrap');
-  const port = process.env.PORT ?? 3000;
+  const port = process.env.PORT ?? 4000;
   await app.listen(port);
   logger.log(`Server is running on port ${port}`);
   logger.log(`Swagger is running on http://localhost:${port}/api/v1/docs`);

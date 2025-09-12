@@ -10,11 +10,5 @@ export class UpdateCategoryDto {
   parentId?: number | null;
 
   @StringOptional()
-  imageUrl?: string;
-
-  @StringOptional()
   description?: string;
-
-  @BooleanOptional()
-  isActive?: boolean;
 }

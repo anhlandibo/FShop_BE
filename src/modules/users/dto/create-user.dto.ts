@@ -1,10 +1,6 @@
-import { IsEmail, IsEnum, IsOptional, IsString } from "class-validator"
+import { IsEmail, IsEnum, IsString } from "class-validator"
 import { Role } from "src/constants/role.enum";
-import { StringOptional } from "src/decorators/dto.decorator";
 export class CreateUserDto {
-    @StringOptional()
-    avatar: string
-
     @IsString()
     fullName: string
 
