@@ -1,9 +1,7 @@
 import { Transform } from 'class-transformer';
 import {
-  BooleanOptional,
   NumberOptional,
   StringOptional,
-  StringRequired,
 } from 'src/decorators/dto.decorator';
 
 export class UpdateCategoryDto {
@@ -18,7 +16,4 @@ export class UpdateCategoryDto {
 
   @StringOptional()
   description?: string;
-
-  @BooleanOptional()
-  isActive?: boolean;
 }

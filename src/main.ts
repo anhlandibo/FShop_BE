@@ -9,7 +9,7 @@ async function bootstrap() {
   // somewhere in your initialization file
   app.use(cookieParser());
   app.enableCors({
-    origin: ['http://localhost:3000'],
+    origin: [process.env.FE_URL],
     credentials: true,
   });
   // prefix API

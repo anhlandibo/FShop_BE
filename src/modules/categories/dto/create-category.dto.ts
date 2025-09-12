@@ -1,9 +1,4 @@
-import {
-  BooleanOptional,
-  NumberOptional,
-  StringOptional,
-  StringRequired,
-} from 'src/decorators/dto.decorator';
+import { NumberOptional, StringOptional, StringRequired } from "src/decorators/dto.decorator";
 
 export class CreateCategoryDto {
   @StringRequired('Category name')
@@ -14,4 +9,5 @@ export class CreateCategoryDto {
 
   @StringOptional()
   description?: string;
+
 }
