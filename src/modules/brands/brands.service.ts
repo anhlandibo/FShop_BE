@@ -21,12 +21,8 @@ export class BrandsService {
   ) {}
 
   async create(createBrandDto: CreateBrandDto, file?: Express.Multer.File) {
-    const alreadyExist = await this.brandRepository.findOne({
-      where: { name: createBrandDto.name },
-    });
-    if (alreadyExist) {
-      throw new HttpException('Brand already exist', HttpStatus.CONFLICT);
-    }
+    const alreadyExist = await this.brandRepository.findOne({where: { name: createBrandDto.name }});
+    if (alreadyExist) throw new HttpException('Brand already exist', HttpStatus.CONFLICT);
 
     let imageUrl: string | undefined;
     let publicId: string | undefined;
@@ -82,14 +78,10 @@ export class BrandsService {
 
   async update(id: number, updateBrandDto: UpdateBrandDto, file?: Express.Multer.File) {
     const brand = await this.brandRepository.findOne({ where: { id } });
-    if (!brand) {
-      throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
-    }
+    if (!brand) throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
     Object.assign(brand, updateBrandDto); // merge 
     if (file) {
-      if (brand.publicId) {
-        await this.cloudinaryService.deleteFile(brand.publicId).catch(() => null);
-      }
+      if (brand.publicId) await this.cloudinaryService.deleteFile(brand.publicId).catch(() => null)
       const uploaded = await this.cloudinaryService.uploadFile(file);
       console.log('updated: ', uploaded)
       brand.imageUrl = uploaded?.secure_url;
@@ -100,18 +92,13 @@ export class BrandsService {
 
   async delete(id: number) {
     const brand = await this.brandRepository.findOne({ where: { id } });
-    if (!brand) {
-      throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
-    }
+    if (!brand) throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
 
-    if (brand.publicId) {
-      await this.cloudinaryService.deleteFile(brand.publicId).catch(() => null);
-    }
-    brand.isActive = false;
-    await this.brandRepository.save(brand);
-
+    if (brand.publicId) await this.cloudinaryService.deleteFile(brand.publicId).catch(() => null);
+    
+    await this.brandRepository.remove(brand);
     return {
-      message: 'Brand soft deleted successfully',
+      message: 'Brand deleted successfully',
       deletedId: id,
     };
   }
@@ -120,21 +107,15 @@ export class BrandsService {
     const { ids } = deleteBrandsDto;
 
     return await this.dataSource.transaction(async (manager) => {
-      const brands = await manager.find(Brand, {
-        where: { id: In(ids) },
-      });
+      const brands = await manager.find(Brand, {where: { id: In(ids) }});
 
-      if (!brands || brands.length === 0) {
+      if (!brands || brands.length === 0) 
         throw new HttpException('Not found any brands', HttpStatus.NOT_FOUND);
-      }
+      
+      for (const brand of brands) 
+        if (brand.publicId) await this.cloudinaryService.deleteFile(brand.publicId).catch(() => null);
 
-      for (const brand of brands) {
-        if (brand.publicId) {
-          await this.cloudinaryService.deleteFile(brand.publicId).catch(() => null);
-        }
-      }
-
-      await manager.update(Brand, { id: In(ids) }, { isActive: false });
+      await manager.remove(brands);
 
       return { deletedIds: ids };
     })

@@ -28,12 +28,9 @@ export class CategoriesService {
     let parentExist: Category | null = null;
     if (createCategoryDto.parentId) {
       parentExist = await this.categoryRepository.findOne({ where: { id: createCategoryDto.parentId } });
-      if (!parentExist) {
-        throw new HttpException('Parent category not found', HttpStatus.NOT_FOUND);
-      }
-      if (parentExist.parentId !== null) {
+      if (!parentExist) throw new HttpException('Parent category not found', HttpStatus.NOT_FOUND);
+      if (parentExist.parentId !== null) 
         throw new HttpException('Cannot create a grandchild category. Maximum two levels of hierarchy are allowed.', HttpStatus.BAD_REQUEST);
-      }
     }
 
     let imageUrl: string | undefined;
@@ -61,32 +58,15 @@ export class CategoriesService {
     file?: Express.Multer.File,
   ) {
     const category = await this.categoryRepository.findOne({ where: { id } });
-    if (!category) {
-      throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
-    }
+    if (!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
 
     if (updateCategoryDto.parentId !== null) {
-      const parentExist = await this.categoryRepository.findOne({
-        where: { id: updateCategoryDto.parentId },
-      });
-      if (!parentExist) {
-        throw new HttpException(
-          'Parent category not found',
-          HttpStatus.NOT_FOUND,
-        );
-      }
-      if (parentExist.id === id) {
-        throw new HttpException(
-          'Category cannot be its own parent',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      if (parentExist.parentId !== null) {
-        throw new HttpException(
-          'Cannot create a grandchild category. Maximum two levels of hierarchy are allowed.',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
+      const parentExist = await this.categoryRepository.findOne({where:{ id: updateCategoryDto.parentId }});
+
+      if (!parentExist) throw new HttpException('Parent category not found',HttpStatus.NOT_FOUND);
+      if (parentExist.id === id) throw new HttpException('Category cannot be its own parent',HttpStatus.BAD_REQUEST);
+      if (parentExist.parentId !== null)throw new HttpException('Cannot create a grandchild category. Maximum two levels of hierarchy are allowed.',HttpStatus.BAD_REQUEST);
+
       category.parentId = parentExist.id;
     }
 
@@ -94,11 +74,7 @@ export class CategoriesService {
 
     // Upload ảnh
     if (file) {
-      if (category.publicId) {
-        await this.cloudinaryService
-          .deleteFile(category.publicId)
-          .catch(() => null);
-      }
+      if (category.publicId) await this.cloudinaryService.deleteFile(category.publicId).catch(() => null);
       const uploaded = await this.cloudinaryService.uploadFile(file);
       category.imageUrl = uploaded?.secure_url;
       category.publicId = uploaded?.public_id;
@@ -110,21 +86,15 @@ export class CategoriesService {
   async remove(id: number) {
     const category = await this.categoryRepository.findOne({
       where: { id },
-      relations: ['children'], // cần load quan hệ
+      relations: ['children'], 
     });
 
-    if (!category) {
-      throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
-    }
+    if (!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
 
-    if (category.children && category.children.length > 0) {
-      throw new HttpException(
-        'Category cannot be deleted because it has children',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
+    if (category.children && category.children.length > 0) throw new HttpException('Category cannot be deleted because it has children',HttpStatus.BAD_REQUEST);
+    
 
-    await this.categoryRepository.update(id, { isActive: false });
+    await this.categoryRepository.remove(category);
 
     return {
       message: 'Category deleted successfully',
@@ -132,7 +102,6 @@ export class CategoriesService {
     };
   }
 
-  @UseGuards()
   async findAll(query: QueryDto) {
     const { page, limit, search, sortBy = 'id', sortOrder = 'DESC' } = query;
     const redisKey = hashKey('categories', query);
@@ -182,7 +151,7 @@ export class CategoriesService {
         );
       }
 
-      await manager.update(Category, { id: In(ids) }, { isActive: false });
+      await manager.remove(categories);
 
       return { deletedIds: ids };
     });

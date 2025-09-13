@@ -20,4 +20,14 @@ export class CartsService {
     const cart = this.cartRepository.create({ user });
     return await this.cartRepository.save(cart);
   }
+
+  async remove(id: number) {
+    const cart = await this.cartRepository.findOne({ where: { id } });
+    if (!cart) throw new HttpException('Cart not found', 404);
+    await this.cartRepository.remove(cart);
+    return {
+      message: 'Cart deleted successfully',
+      deletedId: id,
+    };
+  }
 }

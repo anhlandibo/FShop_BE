@@ -5,11 +5,5 @@ export class UpdateBrandDto {
   name?: string;
 
   @StringOptional()
-  imageUrl?: string;
-
-  @StringOptional()
   description?: string;
-
-  @BooleanOptional()
-  isActive?: boolean;
 }

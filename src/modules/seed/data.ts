@@ -12,56 +12,48 @@ export const brandSeed: Partial<Brand>[] = [
     imageUrl: "https://upload.wikimedia.org/wikipedia/commons/a/a6/Logo_NIKE.svg",
     publicId: "brand_nike",
     description: "Nike – global sportswear and footwear brand.",
-    isActive: true,
   },
   {
     name: "Adidas",
     imageUrl: "https://upload.wikimedia.org/wikipedia/commons/2/20/Adidas_Logo.svg",
     publicId: "brand_adidas",
     description: "Adidas – sportswear and fashion brand from Germany.",
-    isActive: true,
   },
   {
     name: "Puma",
     imageUrl: "https://upload.wikimedia.org/wikipedia/commons/f/fd/Puma_Logo.svg",
     publicId: "brand_puma",
     description: "Puma – popular German athletic and casual footwear brand.",
-    isActive: true,
   },
   {
     name: "Zara",
     imageUrl: "https://upload.wikimedia.org/wikipedia/commons/f/fd/Zara_Logo.svg",
     publicId: "brand_zara",
     description: "Zara – Spanish fast-fashion retailer.",
-    isActive: true,
   },
   {
     name: "H&M",
     imageUrl: "https://upload.wikimedia.org/wikipedia/commons/5/53/H%26M-Logo.svg",
     publicId: "brand_hm",
     description: "H&M – Swedish multinational clothing-retail company.",
-    isActive: true,
   },
   {
     name: "Uniqlo",
     imageUrl: "https://upload.wikimedia.org/wikipedia/commons/c/cf/Uniqlo_logo_Japanese.svg",
     publicId: "brand_uniqlo",
     description: "Uniqlo – Japanese casual wear designer and retailer.",
-    isActive: true,
   },
   {
     name: "Gucci",
     imageUrl: "https://upload.wikimedia.org/wikipedia/commons/6/6e/Gucci_Logo.svg",
     publicId: "brand_gucci",
     description: "Gucci – Italian luxury fashion house.",
-    isActive: true,
   },
   {
     name: "Louis Vuitton",
     imageUrl: "https://upload.wikimedia.org/wikipedia/commons/5/5a/Louis_Vuitton_Logo_and_wordmark.svg",
     publicId: "brand_lv",
     description: "Louis Vuitton – French luxury fashion brand.",
-    isActive: true,
   },
 ];
 
@@ -71,7 +63,6 @@ export const categorySeed: Partial<Category>[] = [
     imageUrl: "https://images.unsplash.com/photo-1528701800489-20be9c1a02e3?w=800",
     publicId: "cat_men",
     description: "Men's fashion",
-    isActive: true,
     parentId: null,
   },
   {
@@ -79,7 +70,6 @@ export const categorySeed: Partial<Category>[] = [
     imageUrl: "https://images.unsplash.com/photo-1520975922071-a6a9e06f7f33?w=800",
     publicId: "cat_women",
     description: "Women's fashion",
-    isActive: true,
     parentId: null,
   },
   {
@@ -87,7 +77,6 @@ export const categorySeed: Partial<Category>[] = [
     imageUrl: "https://images.unsplash.com/photo-1517935706615-2717063c2225?w=800",
     publicId: "cat_kids",
     description: "Kids fashion",
-    isActive: true,
     parentId: null,
   },
   // Men subcategories
@@ -96,7 +85,6 @@ export const categorySeed: Partial<Category>[] = [
     imageUrl: "https://images.unsplash.com/photo-1520975695917-58a6d1e4e6e0?w=800",
     publicId: "cat_men_shirts",
     description: "Men's shirts",
-    isActive: true,
     parentId: 1,
   },
   {
@@ -104,7 +92,6 @@ export const categorySeed: Partial<Category>[] = [
     imageUrl: "https://images.unsplash.com/photo-1503342394128-c104d54dba01?w=800",
     publicId: "cat_men_tshirts",
     description: "Men's T-shirts",
-    isActive: true,
     parentId: 1,
   },
   {
@@ -112,7 +99,6 @@ export const categorySeed: Partial<Category>[] = [
     imageUrl: "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=800",
     publicId: "cat_men_jeans",
     description: "Men's jeans",
-    isActive: true,
     parentId: 1,
   },
   // Women subcategories
@@ -121,7 +107,6 @@ export const categorySeed: Partial<Category>[] = [
     imageUrl: "https://images.unsplash.com/photo-1520975732215-7c7e2dbe4a1d?w=800",
     publicId: "cat_women_dresses",
     description: "Women's dresses",
-    isActive: true,
     parentId: 2,
   },
   {
@@ -129,7 +114,6 @@ export const categorySeed: Partial<Category>[] = [
     imageUrl: "https://images.unsplash.com/photo-1602810318383-ea5a94f5f7cf?w=800",
     publicId: "cat_women_skirts",
     description: "Women's skirts",
-    isActive: true,
     parentId: 2,
   },
   {
@@ -137,7 +121,6 @@ export const categorySeed: Partial<Category>[] = [
     imageUrl: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800",
     publicId: "cat_women_handbags",
     description: "Women's handbags",
-    isActive: true,
     parentId: 2,
   },
   // Kids subcategories
@@ -146,7 +129,6 @@ export const categorySeed: Partial<Category>[] = [
     imageUrl: "https://images.unsplash.com/photo-1603252109303-2751441dd157?w=800",
     publicId: "cat_kids_tshirts",
     description: "Kids' T-shirts",
-    isActive: true,
     parentId: 3,
   },
   {
@@ -154,7 +136,6 @@ export const categorySeed: Partial<Category>[] = [
     imageUrl: "https://images.unsplash.com/photo-1606813902798-5a7219bbd8e9?w=800",
     publicId: "cat_kids_shoes",
     description: "Kids' shoes",
-    isActive: true,
     parentId: 3,
   },
 ];
@@ -167,7 +148,6 @@ export const userSeed: Partial<User>[] = [
     avatar: "https://randomuser.me/api/portraits/men/1.jpg",
     publicId: "user_admin",
     role: Role.Admin,
-    isActive: true,
   },
   {
     fullName: "John Doe",
@@ -176,7 +156,6 @@ export const userSeed: Partial<User>[] = [
     avatar: "https://randomuser.me/api/portraits/men/2.jpg",
     publicId: "user_john",
     role: Role.User,
-    isActive: true,
   },
   {
     fullName: "Jane Smith",
@@ -185,7 +164,6 @@ export const userSeed: Partial<User>[] = [
     avatar: "https://randomuser.me/api/portraits/women/3.jpg",
     publicId: "user_jane",
     role: Role.User,
-    isActive: true,
   },
   {
     fullName: "Michael Brown",
@@ -194,7 +172,6 @@ export const userSeed: Partial<User>[] = [
     avatar: "https://randomuser.me/api/portraits/men/4.jpg",
     publicId: "user_michael",
     role: Role.User,
-    isActive: true,
   },
 ];
 

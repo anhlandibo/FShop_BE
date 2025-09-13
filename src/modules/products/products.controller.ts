@@ -42,8 +42,8 @@ export class ProductsController {
     return this.productsService.findAll(query);
   }
 
-  @Delete(':id')
+  /* @Delete(':id')
   remove(@Param('id') id: number) {
     return this.productsService.delete(id);
-  }
+  } */
 }

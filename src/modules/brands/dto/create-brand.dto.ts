@@ -5,11 +5,5 @@ export class CreateBrandDto {
   name: string;
 
   @StringOptional()
-  imageUrl?: string;
-
-  @StringOptional()
   description?: string;
-
-  @BooleanOptional()
-  isActive?: boolean;
 }

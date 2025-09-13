@@ -9,5 +9,4 @@ export class CreateCategoryDto {
 
   @StringOptional()
   description?: string;
-
 }

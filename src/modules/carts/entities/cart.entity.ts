@@ -9,13 +9,14 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { CartItem } from './cart-item.entity';
+import { on } from 'events';
 
 @Entity()
 export class Cart {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @OneToOne(() => User, (user) => user.cart)
+  @OneToOne(() => User, (user) => user.cart, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
   user: User;
 

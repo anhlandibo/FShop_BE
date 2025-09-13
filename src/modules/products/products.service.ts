@@ -25,114 +25,96 @@ export class ProductsService {
     @InjectRepository(ProductImage)
     private productImageRepository: Repository<ProductImage>,
     @InjectRepository(Brand) private brandRepository: Repository<Brand>,
-    @InjectRepository(Category) private categoryRepository: Repository<Category>,
+    @InjectRepository(Category)
+    private categoryRepository: Repository<Category>,
     @InjectRedis() private readonly redis: Redis,
     private dataSource: DataSource,
     private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   async create(
-  createProductDto: CreateProductDto,
-  images: Array<Express.Multer.File>,
-  variantImages: Array<Express.Multer.File>,
-) {
-  return await this.dataSource.transaction(async (manager) => {
-    // Check trùng tên
-    if (
-      await manager.findOne(Product, {
-        where: { name: createProductDto.name },
-      })
-    ) {
-      throw new HttpException(
-        'Product name already exist',
-        HttpStatus.CONFLICT,
-      );
-    }
+    createProductDto: CreateProductDto,
+    images: Array<Express.Multer.File>,
+    variantImages: Array<Express.Multer.File>,
+  ) {
+    return await this.dataSource.transaction(async (manager) => {
+      // Check trùng tên
+      if (await manager.findOne(Product, {where: { name: createProductDto.name }}))
+        throw new HttpException('Product name already exist',HttpStatus.CONFLICT);
 
-    // Check brand
-    const existingBrand = await manager.findOne(Brand, {
-      where: { id: createProductDto.brandId },
-    });
-    if (!existingBrand) {
-      throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
-    }
+      // Check brand
+      const existingBrand = await manager.findOne(Brand, {where: { id: createProductDto.brandId }});
+      if (!existingBrand) throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
 
-    // Check category
-    const existingCategory = await manager.findOne(Category, {
-      where: { id: createProductDto.categoryId },
-    });
-    if (!existingCategory) {
-      throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
-    }
+      // Check category
+      const existingCategory = await manager.findOne(Category, {where: { id: createProductDto.categoryId}});
+      if (!existingCategory) throw new HttpException('Category not found', HttpStatus.NOT_FOUND)
 
-    // Tạo product
-    const newProduct = manager.create(Product, createProductDto);
-    const savedProduct = await manager.save(newProduct);
+      // Tạo product
+      const newProduct = manager.create(Product, createProductDto);
+      const savedProduct = await manager.save(newProduct);
 
-    // Variants + Images
-    const variants: ProductVariant[] = [];
-    if (createProductDto.variants && createProductDto.variants.length > 0) {
-      for (let i = 0; i < createProductDto.variants.length; i++) {
-        const variantDto = createProductDto.variants[i];
-        let imageUrl: string | undefined = undefined;
-        let publicId: string | undefined = undefined;
+      // Variants + Images
+      const variants: ProductVariant[] = [];
+      if (createProductDto.variants && createProductDto.variants.length > 0) {
+        for (let i = 0; i < createProductDto.variants.length; i++) {
+          const variantDto = createProductDto.variants[i];
+          let imageUrl: string | undefined = undefined;
+          let publicId: string | undefined = undefined;
 
-        if (variantImages[i]) {
-          const uploaded = await this.cloudinaryService.uploadFile(
-            variantImages[i],
-          );
-          imageUrl = uploaded?.secure_url;
-          publicId = uploaded?.public_id;
+          if (variantImages[i]) {
+            const uploaded = await this.cloudinaryService.uploadFile(
+              variantImages[i],
+            );
+            imageUrl = uploaded?.secure_url;
+            publicId = uploaded?.public_id;
+          }
+
+          const variant = manager.create(ProductVariant, {
+            ...variantDto,
+            product: savedProduct,
+            imageUrl,
+            publicId,
+          });
+          variants.push(variant);
         }
-
-        const variant = manager.create(ProductVariant, {
-          ...variantDto,
+      } 
+      else {
+        const defaultVariant = manager.create(ProductVariant, {
+          size: 'Default',
+          color: 'Default',
           product: savedProduct,
-          imageUrl,
-          publicId,
+          price: savedProduct.price,
         });
-        variants.push(variant);
       }
-    }
-    else {
-      const defaultVariant = manager.create(ProductVariant, {
-        size: 'Default',
-        color: 'Default',
-        product: savedProduct,
-        price: savedProduct.price,
-      })
-    }
-    await manager.save(variants);
+      await manager.save(variants);
 
-    // Product images
-    const uploads = await Promise.all(
-      images.map((image) => this.cloudinaryService.uploadFile(image))
-    );
+      // Product images
+      const uploads = await Promise.all(images.map((image) => this.cloudinaryService.uploadFile(image)));
 
-    const productImages = uploads.map((uploaded) =>
-      manager.create(ProductImage, {
-        imageUrl: uploaded?.secure_url,
-        publicId: uploaded?.public_id,
-        product: savedProduct,
-      }),
-    );
-    await manager.save(productImages);
+      const productImages = uploads.map((uploaded) =>
+        manager.create(ProductImage, {
+          imageUrl: uploaded?.secure_url,
+          publicId: uploaded?.public_id,
+          product: savedProduct,
+        }),
+      );
+      await manager.save(productImages);
 
-    return plainToInstance(Product, {
-      ...savedProduct,
-      variants,
-      images: productImages,
+      return plainToInstance(Product, {
+        ...savedProduct,
+        variants,
+        images: productImages,
+      });
     });
-  });
-}
-
+  }
 
   async findAll(query: QueryDto) {
     const { page, limit, search, sortBy = 'id', sortOrder = 'DESC' } = query;
     const redisKey = hashKey('products', query);
-    const cachedData: string | null = await this.redis.get(redisKey)
+    const cachedData: string | null = await this.redis.get(redisKey);
     if (cachedData) {
-      console.log("data lay tu redis")
+      console.log('data lay tu redis');
       return JSON.parse(cachedData) as {
         pagination: {
           total: number;
@@ -140,14 +122,11 @@ export class ProductsService {
           limit: number | undefined;
         };
         data: Product[];
-      }
+      };
     }
     const [data, total] = await this.productRepository.findAndCount({
       where: search
-        ? [
-          { name: Like(`%${search}%`) },
-          { description: Like(`%${search}%`) },
-        ]
+        ? [{ name: Like(`%${search}%`) }, { description: Like(`%${search}%`) }]
         : {},
       ...(page && limit && { take: limit, skip: (page - 1) * limit }),
       order: { [sortBy]: sortOrder },
@@ -157,27 +136,32 @@ export class ProductsService {
       pagination: {
         total,
         page,
-        limit
+        limit,
       },
-      data
+      data,
     };
-    console.log("data lay tu DB")
-    await this.redis.set(redisKey, JSON.stringify(response), 'EX', 60)
-    return response
+    console.log('data lay tu DB');
+    await this.redis.set(redisKey, JSON.stringify(response), 'EX', 60);
+    return response;
   }
 
-  async delete(id: number) {
-    const product = await this.productRepository.findOne({
-      where: { id },
-    });
-    if (!product || product.isActive === false) throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+  /* async delete(id: number) {
+    const product = await this.productRepository.findOne({where: { id }});
+    if (!product || product.isActive === false) 
+      throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
     await this.productRepository.update(id, { isActive: false });
-    await this.productVariantRepository.update({ product: {id } }, { isActive: false });
-    await this.productImageRepository.update({ product: {id } }, { isActive: false });
+    await this.productVariantRepository.update(
+      { product: { id } },
+      { isActive: false },
+    );
+    await this.productImageRepository.update(
+      { product: { id } },
+      { isActive: false },
+    );
 
     return {
       message: 'Product deleted successfully',
       deleteId: id,
     };
-  }
+  } */
 }
