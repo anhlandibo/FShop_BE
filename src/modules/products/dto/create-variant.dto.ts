@@ -1,18 +1,17 @@
-import { NumberOptional, NumberRequired, StringOptional } from "src/decorators/dto.decorator";
+import { IsInt, IsNotEmpty } from 'class-validator';
+import { NumberRequired, StringRequired } from 'src/decorators/dto.decorator';
 
 export class CreateProductVariantDto {
-  @StringOptional()
-  size?: string;
+  @StringRequired('Size')
+  size: string;
 
-  @StringOptional()
-  color?: string;
+  @StringRequired('Color')
+  color: string;
 
-  @NumberRequired('Quantity')
+  @IsNotEmpty()
+  @NumberRequired('Product price')
   quantity: number;
 
-  @NumberRequired('Remaining')
-  remaining: number;
-
-  @NumberOptional()
-  price?: number;
+  @IsInt()
+  price: number;
 }

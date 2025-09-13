@@ -1,4 +1,5 @@
 import { Role } from 'src/constants/role.enum';
+import { Address } from 'src/modules/address/entities/address.entity';
 import { Cart } from 'src/modules/carts/entities/cart.entity';
 import {
   Entity,
@@ -7,6 +8,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToOne,
+  OneToMany,
 } from 'typeorm';
 
 @Entity()
@@ -44,4 +46,7 @@ export class User {
 
   @OneToOne(() => Cart, (cart) => cart.user, {cascade: true})
   cart: Cart;
+
+  @OneToMany(() => Address, address => address.user)
+  addresses: Address[];
 }

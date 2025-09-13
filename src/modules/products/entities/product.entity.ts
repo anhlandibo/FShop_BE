@@ -3,6 +3,7 @@ import { Category } from "src/modules/categories/entities/category.entity";
 import { Column, CreateDateColumn, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { ProductVariant } from "./product-variant.entity";
 import { ProductImage } from "./product-image.entity";
+import { Exclude } from "class-transformer";
 
 @Entity()
 export class Product {

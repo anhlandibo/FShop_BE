@@ -51,7 +51,11 @@ export class ProductsService {
       if (!existingCategory) throw new HttpException('Category not found', HttpStatus.NOT_FOUND)
 
       // Tạo product
-      const newProduct = manager.create(Product, createProductDto);
+      const newProduct = manager.create(Product, {
+        ...createProductDto,
+        brand: existingBrand,
+        category: existingCategory,
+      });
       const savedProduct = await manager.save(newProduct);
 
       // Variants + Images
@@ -72,6 +76,7 @@ export class ProductsService {
 
           const variant = manager.create(ProductVariant, {
             ...variantDto,
+            remaining: variantDto.quantity,
             product: savedProduct,
             imageUrl,
             publicId,

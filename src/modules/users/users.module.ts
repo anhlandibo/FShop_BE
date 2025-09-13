@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from 'src/modules/users/entities/user.entity';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 import { CartsModule } from '../carts/carts.module';
+import { Address } from '../address/entities/address.entity';
 
 @Module({
   imports: [TypeOrmModule.forFeature([User]), CloudinaryModule, CartsModule],

@@ -9,6 +9,7 @@ import {
   Max,
   Min,
   IsBoolean,
+  IsPhoneNumber,
 } from 'class-validator';
 
 export const StringOptional = () =>
@@ -42,4 +43,37 @@ export const NumberRequired = (name: string, min: number = 0, max?: number) =>
   );
 
 export const BooleanOptional = () =>
-  applyDecorators(ApiProperty({ required: false }), IsOptional(), IsBoolean(), Transform(({ value }) => value === 'true' || value === '1'));
+  applyDecorators(
+    ApiProperty({ required: false }),
+    IsOptional(),
+    IsBoolean(),
+    Transform(({ value }) => value === 'true' || value === '1'),
+  );
+
+export const PhoneNumberRequired = (name: string) =>
+  applyDecorators(
+    ApiProperty({
+      required: true,
+      example: '+841234567890',
+      description: 'Phone number must be a valid number with country code.',
+    }),
+    IsString({ message: `${name} must be a string` }),
+    IsNotEmpty({ message: `${name} can not be empty` }),
+    IsPhoneNumber('VN', {
+      message: 'Invalid phone number format',
+    }),
+  );
+
+export const PhoneNumberOptional = (name: string) =>
+  applyDecorators(
+    ApiProperty({
+      required: false,
+      example: '+84987654321',
+      description: 'The phone number must be a valid number with country code.',
+    }),
+    IsOptional(),
+    IsString({ message: `${name} must be a string` }),
+    IsPhoneNumber('VN', {
+      message: 'Invalid phone number format',
+    }),
+  );
