@@ -4,12 +4,10 @@ import { Brand } from './entities/brand.entity';
 import { DataSource, In, Like, Repository } from 'typeorm';
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import Redis from 'ioredis';
-import { CreateBrandDto } from './dto/create-brand.dto';
 import { QueryDto } from 'src/dto/query.dto';
 import { hashKey } from 'src/utils/hash';
-import { UpdateBrandDto } from './dto/update-brand.dto';
-import { DeleteBrandsDto } from './dto/delete-brands.dto';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { CreateBrandDto, UpdateBrandDto, DeleteBrandsDto } from './dto';
 
 @Injectable()
 export class BrandsService {

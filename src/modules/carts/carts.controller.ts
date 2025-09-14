@@ -1,8 +1,7 @@
 import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { CartsService } from './carts.service';
-import { CreateCartDto } from './dto/create-cart.dto';
 import { AuthGuard } from 'src/guards/auth.guard';
-import { CartItemDto } from './dto/cart-item.dto';
+import { CartItemDto, CreateCartDto } from './dto';
 
 @Controller('carts')
 export class CartsController {

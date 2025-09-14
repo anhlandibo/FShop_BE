@@ -47,7 +47,7 @@ export const BooleanOptional = () =>
     ApiProperty({ required: false }),
     IsOptional(),
     IsBoolean(),
-    Transform(({ value }) => value === 'true' || value === '1'),
+    Transform(({ value }) => value === 'true' || value === '1' || value === true),
   );
 
 export const PhoneNumberRequired = (name: string) =>

@@ -1,17 +1,15 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
 import { DataSource, In, Like, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { hashKey, hashPassword } from 'src/utils/hash';
 import { User } from 'src/modules/users/entities/user.entity';
 import { QueryDto } from 'src/dto/query.dto';
-import { DeleteUsersDto } from 'src/modules/users/dto/delete-users.dto';
 import Redis from 'ioredis';
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { CartsService } from '../carts/carts.service';
+import { CreateUserDto, UpdateUserDto, DeleteUsersDto } from './dto';
 
 @Injectable()
 export class UsersService {

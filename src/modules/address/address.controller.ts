@@ -1,11 +1,8 @@
-import { Body, Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { AddressService } from './address.service';
 import { AuthGuard } from 'src/guards/auth.guard';
-import { CreateAddressDto } from './dto/create-address.dto';
-import { Roles } from 'src/decorators/role.decorator';
-import { RolesGuard } from 'src/guards/roles.guard';
-import { Role } from 'src/constants/role.enum';
 import { QueryDto } from 'src/dto/query.dto';
+import { CreateAddressDto, UpdateAddressDto } from './dto';
 
 @Controller('address')
 export class AddressController {
@@ -23,5 +20,32 @@ export class AddressController {
   @Get('all')
   findAll(@Query()query: QueryDto) {
     return this.addressService.findAll(query);
+  }
+
+  @Delete(':id')
+  delete(@Param('id') id: number) {
+    return this.addressService.delete(id);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get()
+  getMyAddresses(@Req() req: Request) {
+    const {id} = req['user'];
+    return this.addressService.getMyAddresses(id);
+  }
+
+  @UseGuards(AuthGuard)
+  @Patch(':id')
+  update(@Req() req: Request, @Param('id') id: number, @Body() updateAddressDto: UpdateAddressDto) {
+    const {id: userId} = req['user'];
+    return this.addressService.update(userId, id, updateAddressDto);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get(':addressId')
+  getAddress(@Req() req: Request, @Param('addressId') addressId: number) {
+    const {id} = req['user'];
+    console.log(id)
+    return this.addressService.getAddressById(id, addressId);
   }
 }

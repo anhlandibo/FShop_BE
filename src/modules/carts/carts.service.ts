@@ -2,12 +2,10 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Cart } from './entities/cart.entity';
 import { Repository } from 'typeorm';
-import { CreateCartDto } from './dto/create-cart.dto';
 import { User } from '../users/entities/user.entity';
-import { CartItemDto } from './dto/cart-item.dto';
 import { ProductVariant } from '../products/entities/product-variant.entity';
 import { CartItem } from './entities/cart-item.entity';
-import e from 'express';
+import { CreateCartDto, CartItemDto } from './dto';
 
 @Injectable()
 export class CartsService {

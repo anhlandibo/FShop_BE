@@ -1,11 +1,8 @@
 import { Body, Controller, Delete, Get, HttpException, HttpStatus, Param, Patch, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { BrandsService } from './brands.service';
-import { create } from 'domain';
-import { CreateBrandDto } from './dto/create-brand.dto';
 import { QueryDto } from 'src/dto/query.dto';
-import { UpdateBrandDto } from './dto/update-brand.dto';
-import { DeleteBrandsDto } from './dto/delete-brands.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { CreateBrandDto, UpdateBrandDto, DeleteBrandsDto } from './dto';
 
 @Controller('brands')
 export class BrandsController {

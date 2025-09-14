@@ -5,12 +5,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import Redis from 'ioredis';
 import { Repository, DataSource, Like, In } from 'typeorm';
 import { Category } from './entities/category.entity';
-import { CreateCategoryDto } from './dto/create-category.dto';
-import { UpdateCategoryDto } from './dto/update-category.dto';
 import { QueryDto } from 'src/dto/query.dto';
 import { hashKey } from 'src/utils/hash';
-import { DeleteCategoriesDto } from './dto/delete-categories.dto';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { CreateCategoryDto, UpdateCategoryDto, DeleteCategoriesDto } from './dto';
 
 @Injectable()
 export class CategoriesService {

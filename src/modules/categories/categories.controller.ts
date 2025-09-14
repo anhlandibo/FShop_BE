@@ -1,10 +1,8 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
-import { CreateCategoryDto } from './dto/create-category.dto';
-import { UpdateCategoryDto } from './dto/update-category.dto';
 import { QueryDto } from 'src/dto/query.dto';
-import { DeleteCategoriesDto } from './dto/delete-categories.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { CreateCategoryDto, UpdateCategoryDto, DeleteCategoriesDto } from './dto';
 
 @Controller('categories')
 export class CategoriesController {

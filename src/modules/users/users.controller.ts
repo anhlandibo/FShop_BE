@@ -1,15 +1,13 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, HttpStatus, UseGuards, Query, Req, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
 import { AuthGuard } from 'src/guards/auth.guard';
 import { Roles } from 'src/decorators/role.decorator';
 import { Role } from 'src/constants/role.enum';
 import { RolesGuard } from 'src/guards/roles.guard';
 import { QueryDto } from 'src/dto/query.dto';
 import { Request } from 'express';
-import { DeleteUsersDto } from 'src/modules/users/dto/delete-users.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { CreateUserDto, UpdateUserDto, DeleteUsersDto } from './dto';
 
 @Controller('users')
 export class UsersController {
