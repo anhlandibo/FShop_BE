@@ -8,8 +8,8 @@ import { CreateAddressDto, UpdateAddressDto } from './dto';
 export class AddressController {
   constructor(private readonly addressService: AddressService) {}
 
-  @Post()
   @UseGuards(AuthGuard)
+  @Post()
   create(@Req() req: Request, @Body() createAddressDto: CreateAddressDto) {
     const {id} = req['user'];
     return this.addressService.create(id, createAddressDto);

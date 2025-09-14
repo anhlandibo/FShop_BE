@@ -10,6 +10,7 @@ import {
 import { Product } from './product.entity';
 import { Exclude } from 'class-transformer';
 import { CartItem } from 'src/modules/carts/entities/cart-item.entity';
+import { OrderItem } from 'src/modules/orders/entities';
 
 @Entity()
 export class ProductVariant {
@@ -37,6 +38,9 @@ export class ProductVariant {
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   price: number;
 
+  @Column({ type: 'boolean', default: true })
+  isActive: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 
@@ -50,6 +54,8 @@ export class ProductVariant {
   @OneToMany(() => CartItem, (cartItem) => cartItem.variant)
   cartItems: CartItem[];
 
-  @Column({ type: 'boolean', default: true })
-  isActive: boolean;
+  @OneToMany(() => OrderItem, orderItem => orderItem.variant)
+  orderItems: OrderItem[];
+
+ 
 }

@@ -180,7 +180,6 @@ export const productSeed: Partial<Product>[] = [
     id: 1,
     name: 'Nike Air Force 1',
     description: 'Classic basketball-inspired sneakers with a timeless design.',
-    price: 120.0,
     brand: { id: 1 } as any, // Nike
     category: { id: 3 } as any, // Shoes
     isActive: true,
@@ -189,7 +188,6 @@ export const productSeed: Partial<Product>[] = [
     id: 2,
     name: 'Nike Dunk Low Retro',
     description: 'Low-top sneakers with bold colors and premium leather.',
-    price: 130.0,
     brand: { id: 1 } as any,
     category: { id: 3 } as any,
     isActive: true,
@@ -198,7 +196,6 @@ export const productSeed: Partial<Product>[] = [
     id: 3,
     name: 'Adidas Ultraboost',
     description: 'Running shoes with Boost cushioning for ultimate comfort.',
-    price: 180.0,
     brand: { id: 2 } as any,
     category: { id: 3 } as any,
     isActive: true,
@@ -207,7 +204,6 @@ export const productSeed: Partial<Product>[] = [
     id: 4,
     name: 'Adidas Samba Classic',
     description: 'Iconic indoor soccer shoes with retro vibes.',
-    price: 95.0,
     brand: { id: 2 } as any,
     category: { id: 3 } as any,
     isActive: true,
@@ -216,7 +212,6 @@ export const productSeed: Partial<Product>[] = [
     id: 5,
     name: 'Levi’s 501 Original Jeans',
     description: 'Iconic straight-fit jeans with a classic style.',
-    price: 90.0,
     brand: { id: 3 } as any,
     category: { id: 4 } as any, // Pants
     isActive: true,
@@ -225,7 +220,6 @@ export const productSeed: Partial<Product>[] = [
     id: 6,
     name: 'Levi’s Trucker Jacket',
     description: 'Classic denim jacket, rugged and stylish.',
-    price: 110.0,
     brand: { id: 3 } as any,
     category: { id: 7 } as any, // Jackets
     isActive: true,
@@ -234,7 +228,6 @@ export const productSeed: Partial<Product>[] = [
     id: 7,
     name: 'Zara Casual T-Shirt',
     description: 'Soft cotton t-shirt, perfect for everyday wear.',
-    price: 25.0,
     brand: { id: 4 } as any,
     category: { id: 2 } as any, // T-Shirts
     isActive: true,
@@ -243,7 +236,6 @@ export const productSeed: Partial<Product>[] = [
     id: 8,
     name: 'Zara Slim Fit Blazer',
     description: 'Modern blazer tailored for a sharp look.',
-    price: 150.0,
     brand: { id: 4 } as any,
     category: { id: 8 } as any, // Suits / Blazers
     isActive: true,
@@ -252,7 +244,6 @@ export const productSeed: Partial<Product>[] = [
     id: 9,
     name: 'H&M Summer Dress',
     description: 'Lightweight floral dress, perfect for summer.',
-    price: 45.0,
     brand: { id: 5 } as any,
     category: { id: 6 } as any, // Dresses
     isActive: true,
@@ -261,7 +252,6 @@ export const productSeed: Partial<Product>[] = [
     id: 10,
     name: 'H&M Winter Coat',
     description: 'Warm and stylish coat for cold days.',
-    price: 120.0,
     brand: { id: 5 } as any,
     category: { id: 7 } as any,
     isActive: true,
@@ -270,7 +260,6 @@ export const productSeed: Partial<Product>[] = [
     id: 11,
     name: 'Uniqlo Ultra Light Down Jacket',
     description: 'Lightweight yet warm down jacket, packable and versatile.',
-    price: 70.0,
     brand: { id: 6 } as any, // Uniqlo
     category: { id: 7 } as any,
     isActive: true,
@@ -279,7 +268,6 @@ export const productSeed: Partial<Product>[] = [
     id: 12,
     name: 'Uniqlo Heattech Long Sleeve',
     description: 'Thermal wear designed to retain body heat in cold weather.',
-    price: 25.0,
     brand: { id: 6 } as any,
     category: { id: 2 } as any,
     isActive: true,
@@ -288,7 +276,6 @@ export const productSeed: Partial<Product>[] = [
     id: 13,
     name: 'Gucci Ace Sneakers',
     description: 'Luxury leather sneakers with signature Gucci stripes.',
-    price: 650.0,
     brand: { id: 7 } as any, // Gucci
     category: { id: 3 } as any,
     isActive: true,
@@ -297,7 +284,6 @@ export const productSeed: Partial<Product>[] = [
     id: 14,
     name: 'Gucci GG Marmont Bag',
     description: 'Designer leather crossbody bag with GG logo.',
-    price: 2200.0,
     brand: { id: 7 } as any,
     category: { id: 9 } as any, // Accessories
     isActive: true,
@@ -306,7 +292,6 @@ export const productSeed: Partial<Product>[] = [
     id: 15,
     name: 'Prada Nylon Backpack',
     description: 'Signature nylon backpack with luxury finish.',
-    price: 1800.0,
     brand: { id: 8 } as any, // Prada
     category: { id: 9 } as any,
     isActive: true,

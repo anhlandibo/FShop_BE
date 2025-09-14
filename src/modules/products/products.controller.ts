@@ -24,13 +24,6 @@ export class ProductsController {
       variantImages?: Array<Express.Multer.File>;
     },
   ) {
-    // const createProductDto = new CreateProductDto();
-    // createProductDto.name = body.name;
-    // createProductDto.description = body.description;
-    // createProductDto.price = parseFloat(body.price);
-    // createProductDto.categoryId = parseInt(body.categoryId, 10);
-    // createProductDto.brandId = parseInt(body.brandId, 10);
-    // createProductDto.variants = JSON.parse(body.variants);
     console.log(createProductDto);
     return this.productsService.create(
       createProductDto,
@@ -44,8 +37,15 @@ export class ProductsController {
     return this.productsService.findAll(query);
   }
 
+  @Get(':id')
+  getProductById(@Param('id') id: number) {
+    return this.productsService.getProductById(id);
+  }
+
   /* @Delete(':id')
   remove(@Param('id') id: number) {
     return this.productsService.delete(id);
   } */
+
+
 }

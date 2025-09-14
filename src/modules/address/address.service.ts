@@ -20,7 +20,7 @@ export class AddressService {
 
     if (isDefault)
       await this.addressRepository.update(
-        { user: { id: userId }, isDefault: true },
+        { userId, isDefault: true },
         { isDefault: false },
       );
 

@@ -20,10 +20,6 @@ export class CreateProductDto {
   @StringOptional()
   description?: string;
 
-  @IsNotEmpty()
-  @NumberRequired('Product price')
-  price: number;
-
   @NumberRequired('Category id')
   categoryId: number;
 

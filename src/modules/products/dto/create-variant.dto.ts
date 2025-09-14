@@ -9,9 +9,9 @@ export class CreateProductVariantDto {
   color: string;
 
   @IsNotEmpty()
-  @NumberRequired('Product price')
+  @NumberRequired('Quantity')
   quantity: number;
 
-  @IsInt()
+  @NumberRequired('Variant price')
   price: number;
 }

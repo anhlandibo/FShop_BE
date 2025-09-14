@@ -1,6 +1,7 @@
 import { Role } from 'src/constants/role.enum';
 import { Address } from 'src/modules/address/entities/address.entity';
-import { Cart } from 'src/modules/carts/entities/cart.entity';
+import { Cart } from 'src/modules/carts/entities';
+import { Order } from 'src/modules/orders/entities';
 import {
   Entity,
   Column,
@@ -31,11 +32,7 @@ export class User {
   @Column()
   password: string;
 
-  @Column({
-    type: 'enum',
-    enum: Role,
-    default: Role.User, // mặc định là user
-  })
+  @Column({type: 'enum', enum: Role, default: Role.User})
   role: Role;
 
   @CreateDateColumn()
@@ -49,4 +46,7 @@ export class User {
 
   @OneToMany(() => Address, address => address.user)
   addresses: Address[];
+
+  @OneToMany(() => Order, order => order.user)
+  orders: Order[];
 }

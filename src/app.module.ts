@@ -27,6 +27,7 @@ import { ProductsModule } from './modules/products/products.module';
 import { SeedModule } from './modules/seed/seed.module';
 import { CartsModule } from './modules/carts/carts.module';
 import { AddressModule } from './modules/address/address.module';
+import { OrdersModule } from './modules/orders/orders.module';
 import path from 'path';
 
 @Module({
@@ -52,6 +53,7 @@ import path from 'path';
     SeedModule,
     CartsModule,
     AddressModule,
+    OrdersModule,
   ],
   controllers: [AppController],
   providers: [

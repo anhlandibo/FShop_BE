@@ -89,7 +89,6 @@ export class ProductsService {
           size: 'Default',
           color: 'Default',
           product: savedProduct,
-          price: savedProduct.price,
         });
       }
       await manager.save(variants);
@@ -148,6 +147,12 @@ export class ProductsService {
     console.log('data lay tu DB');
     await this.redis.set(redisKey, JSON.stringify(response), 'EX', 60);
     return response;
+  }
+
+  async getProductById(id: number) {
+    const product = await this.productRepository.findOne({ where: { id }, relations: ['variants', 'images'] });
+    if (!product) throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+    return product;
   }
 
   /* async delete(id: number) {

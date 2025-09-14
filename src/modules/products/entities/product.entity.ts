@@ -16,9 +16,6 @@ export class Product {
   @Column({ nullable: true, type: 'text' })
   description: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
-  price: number;
-
   @CreateDateColumn()
   createdAt: Date;
 
