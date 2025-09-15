@@ -1,13 +1,14 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Order, OrderItem } from './entities';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Like, Repository } from 'typeorm';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { User } from '../users/entities/user.entity';
 import { Cart, CartItem } from '../carts/entities';
 import { OrderStatus } from 'src/constants';
 import { ProductVariant } from '../products/entities';
 import { Address } from '../address/entities/address.entity';
+import { QueryDto } from 'src/dto/query.dto';
 
 @Injectable()
 export class OrdersService {
@@ -75,5 +76,49 @@ export class OrdersService {
       await manager.save(order);
       return order;
     })
+  }
+
+  async getMyOrders(userId: number, query: QueryDto) {
+    const { page, limit, sortBy = 'id', sortOrder = 'DESC' } = query;
+    const [data, total] = await this.orderRepository.findAndCount({
+      where: { user: { id: userId}},
+      relations: ['items', 'items.variant'],
+      ...(page && limit && { take: limit, skip: (page - 1) * limit }),
+      order: { [sortBy]: sortOrder },
+    });
+    const response = { pagination: { total, page, limit }, data };
+    console.log('data lay tu DB');
+    return response;
+  }
+
+  async getOrderById(userId: number, id: number) {
+    const order = await this.orderRepository.findOne({
+      where: { user: { id: userId }, id },
+      relations: ['items', 'items.variant'],
+    });
+    if (!order) throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
+    return order
+  }
+
+  async getAll(query: QueryDto){
+    const { page, limit, search, sortBy = 'id', sortOrder = 'DESC' } = query;
+    const [data, total] = await this.orderRepository.findAndCount({
+      where: search
+        ? [{ note: Like(`%${search}%`) }, { detailAddress: Like(`%${search}%`) }]
+        : {},
+      relations: ['items', 'items.variant', 'user'],
+      ...(page && limit && { take: limit, skip: (page - 1) * limit }),
+      order: { [sortBy]: sortOrder },
+    });
+    const response = {
+      pagination: {
+        total,
+        page,
+        limit,
+      },
+      data,
+    };
+    console.log('data lay tu DB');
+    return response;
   }
 }
