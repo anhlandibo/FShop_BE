@@ -5,16 +5,18 @@ import { DataSource, Like, Repository } from 'typeorm';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { User } from '../users/entities/user.entity';
 import { Cart, CartItem } from '../carts/entities';
-import { OrderStatus } from 'src/constants';
+import { OrderStatus, Role } from 'src/constants';
 import { ProductVariant } from '../products/entities';
 import { Address } from '../address/entities/address.entity';
 import { QueryDto } from 'src/dto/query.dto';
+import { ActorRole, ensureTransitionAllowed } from 'src/utils/order-status.rules';
 
 @Injectable()
 export class OrdersService {
   constructor(
     @InjectRepository(Order) private orderRepository: Repository<Order>,
     @InjectRepository(OrderItem) private orderItemRepository: Repository<OrderItem>,
+    @InjectRepository(ProductVariant) private readonly variantRepo: Repository<ProductVariant>,
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
@@ -120,5 +122,34 @@ export class OrdersService {
     };
     console.log('data lay tu DB');
     return response;
+  }
+
+  async updateStatus(orderId: number, next: OrderStatus, actor: {id: number, role: ActorRole, reason?: string }) {
+    return this.dataSource.transaction(async (manager) => {
+      const order = await manager.findOne(Order, { where: { id: orderId }, relations: ['items']});
+      if (!order) throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
+
+      try {
+        ensureTransitionAllowed(order.status, next, actor.role)
+      }
+      catch (e) {
+        throw new HttpException(String(e), HttpStatus.BAD_REQUEST);
+      }
+      if (next === OrderStatus.CANCELED) {
+        for (const it of order.items) {
+          const variant = await manager.findOne(ProductVariant, { where: { id: it.variant.id } });
+          if (variant) {
+            variant.remaining = Number(variant.remaining) + Number(it.quantity);
+            await manager.save(variant);
+          }
+        }
+      }
+
+      const prev = order.status;
+      order.status = next;
+      await manager.save(order);
+
+      return { message: 'Order status updated', from: prev, to: next };
+    });
   }
 }
