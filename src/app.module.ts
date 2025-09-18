@@ -28,6 +28,7 @@ import { SeedModule } from './modules/seed/seed.module';
 import { CartsModule } from './modules/carts/carts.module';
 import { AddressModule } from './modules/address/address.module';
 import { OrdersModule } from './modules/orders/orders.module';
+import { CouponsModule } from './modules/coupons/coupons.module';
 import path from 'path';
 
 @Module({
@@ -54,6 +55,7 @@ import path from 'path';
     CartsModule,
     AddressModule,
     OrdersModule,
+    CouponsModule,
   ],
   controllers: [AppController],
   providers: [
