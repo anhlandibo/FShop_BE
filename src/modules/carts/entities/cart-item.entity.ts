@@ -10,7 +10,7 @@ import {
 import { Cart } from './cart.entity';
 import { ProductVariant } from 'src/modules/products/entities/product-variant.entity';
 
-@Entity()
+@Entity('cart_items')
 export class CartItem {
   @PrimaryGeneratedColumn()
   id: number;

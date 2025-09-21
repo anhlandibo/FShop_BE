@@ -3,7 +3,7 @@ import { User } from "src/modules/users/entities/user.entity";
 import { CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn, Unique } from "typeorm";
 import { Coupon } from "./coupon.entity";
 
-@Entity()
+@Entity('coupon_redemptions')
 @Unique(['coupon', 'order'])
 export class CouponRedemption {
   @PrimaryGeneratedColumn()

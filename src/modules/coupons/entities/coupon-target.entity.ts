@@ -2,7 +2,7 @@ import { TargetType } from "src/constants/target-type.enum";
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Coupon } from "./coupon.entity";
 
-@Entity()
+@Entity('coupon_targets')
 export class CouponTarget {
   @PrimaryGeneratedColumn()
   id: number;

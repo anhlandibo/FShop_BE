@@ -9,20 +9,20 @@ export class BrandsController {
   constructor(private readonly brandsService: BrandsService) {}
 
   @Post()
-  @UseInterceptors(FileInterceptor('file'))
-  create(@Body() createBrandDto: CreateBrandDto, @UploadedFile() file?: Express.Multer.File) {
-    return this.brandsService.create(createBrandDto, file);
+  @UseInterceptors(FileInterceptor('image'))
+  create(@Body() createBrandDto: CreateBrandDto, @UploadedFile() image: Express.Multer.File) {
+    return this.brandsService.create(createBrandDto, image);
   }
 
-  @Get()
+  @Get('all')
   findAll(@Query() query: QueryDto) {
     return this.brandsService.findAll(query);
   }
 
   @Patch(':id')
-  @UseInterceptors(FileInterceptor('file'))
-  update(@Param('id') id: number, @Body() updateBrandDto: UpdateBrandDto, @UploadedFile() file?: Express.Multer.File) {
-    return this.brandsService.update(id, updateBrandDto, file);
+  @UseInterceptors(FileInterceptor('image'))
+  update(@Param('id') id: number, @Body() updateBrandDto: UpdateBrandDto, @UploadedFile() image: Express.Multer.File) {
+    return this.brandsService.update(id, updateBrandDto, image);
   }
 
   @Delete(':id')
@@ -33,5 +33,15 @@ export class BrandsController {
   @Post('many')
   deleteMany(@Body() deleteBrandsDto: DeleteBrandsDto) {
     return this.brandsService.deleteMany(deleteBrandsDto);
+  }
+
+  @Get(':id')
+  getById(@Param('id') id: number) {
+    return this.brandsService.getById(id);
+  }
+
+  @Get(':slug')
+  getBySlug(@Param('slug') slug: string) {
+    return this.brandsService.getBySlug(slug);
   }
 }

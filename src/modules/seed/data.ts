@@ -63,21 +63,18 @@ export const categorySeed: Partial<Category>[] = [
     imageUrl: "https://images.unsplash.com/photo-1528701800489-20be9c1a02e3?w=800",
     publicId: "cat_men",
     description: "Men's fashion",
-    parentId: null,
   },
   {
     name: "Women",
     imageUrl: "https://images.unsplash.com/photo-1520975922071-a6a9e06f7f33?w=800",
     publicId: "cat_women",
     description: "Women's fashion",
-    parentId: null,
   },
   {
     name: "Kids",
     imageUrl: "https://images.unsplash.com/photo-1517935706615-2717063c2225?w=800",
     publicId: "cat_kids",
     description: "Kids fashion",
-    parentId: null,
   },
   // Men subcategories
   {
@@ -85,21 +82,18 @@ export const categorySeed: Partial<Category>[] = [
     imageUrl: "https://images.unsplash.com/photo-1520975695917-58a6d1e4e6e0?w=800",
     publicId: "cat_men_shirts",
     description: "Men's shirts",
-    parentId: 1,
   },
   {
     name: "T-Shirts",
     imageUrl: "https://images.unsplash.com/photo-1503342394128-c104d54dba01?w=800",
     publicId: "cat_men_tshirts",
     description: "Men's T-shirts",
-    parentId: 1,
   },
   {
     name: "Jeans",
     imageUrl: "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=800",
     publicId: "cat_men_jeans",
     description: "Men's jeans",
-    parentId: 1,
   },
   // Women subcategories
   {
@@ -107,21 +101,18 @@ export const categorySeed: Partial<Category>[] = [
     imageUrl: "https://images.unsplash.com/photo-1520975732215-7c7e2dbe4a1d?w=800",
     publicId: "cat_women_dresses",
     description: "Women's dresses",
-    parentId: 2,
   },
   {
     name: "Skirts",
     imageUrl: "https://images.unsplash.com/photo-1602810318383-ea5a94f5f7cf?w=800",
     publicId: "cat_women_skirts",
     description: "Women's skirts",
-    parentId: 2,
   },
   {
     name: "Handbags",
     imageUrl: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800",
     publicId: "cat_women_handbags",
     description: "Women's handbags",
-    parentId: 2,
   },
   // Kids subcategories
   {
@@ -129,14 +120,12 @@ export const categorySeed: Partial<Category>[] = [
     imageUrl: "https://images.unsplash.com/photo-1603252109303-2751441dd157?w=800",
     publicId: "cat_kids_tshirts",
     description: "Kids' T-shirts",
-    parentId: 3,
   },
   {
     name: "Shoes Kids",
     imageUrl: "https://images.unsplash.com/photo-1606813902798-5a7219bbd8e9?w=800",
     publicId: "cat_kids_shoes",
     description: "Kids' shoes",
-    parentId: 3,
   },
 ];
 

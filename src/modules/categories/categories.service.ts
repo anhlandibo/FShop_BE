@@ -9,95 +9,103 @@ import { QueryDto } from 'src/dto/query.dto';
 import { hashKey } from 'src/utils/hash';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { CreateCategoryDto, UpdateCategoryDto, DeleteCategoriesDto } from './dto';
+import { Department } from '../departments/entities/department.entity';
 
 @Injectable()
 export class CategoriesService {
   constructor(
     @InjectRepository(Category)
     private categoryRepository: Repository<Category>,
+    @InjectRepository(Department)
+    private departmentRepository: Repository<Department>,
     @InjectRedis() private readonly redis: Redis,
     private dataSource: DataSource,
     private readonly cloudinaryService: CloudinaryService,
-  ) { }
+  ) {}
 
-  async create(createCategoryDto: CreateCategoryDto, file?: Express.Multer.File) {
-    if (await this.categoryRepository.findOne({ where: { name: createCategoryDto.name } }))
-      throw new HttpException('Category already exist', HttpStatus.CONFLICT);
-    let parentExist: Category | null = null;
-    if (createCategoryDto.parentId) {
-      parentExist = await this.categoryRepository.findOne({ where: { id: createCategoryDto.parentId } });
-      if (!parentExist) throw new HttpException('Parent category not found', HttpStatus.NOT_FOUND);
-      if (parentExist.parentId !== null) 
-        throw new HttpException('Cannot create a grandchild category. Maximum two levels of hierarchy are allowed.', HttpStatus.BAD_REQUEST);
-    }
+  async create(
+    createCategoryDto: CreateCategoryDto,
+    file: Express.Multer.File,
+  ) {
+    return await this.dataSource.transaction(async (manager) => {
+      if (
+        await manager.findOne(Category, {
+          where: { name: createCategoryDto.name },
+        })
+      )
+        throw new HttpException('Category already exist', HttpStatus.CONFLICT);
+      const department = await manager.findOne(Department, {
+        where: { id: createCategoryDto.departmentId },
+      });
+      if (!department)
+        throw new HttpException('Department not found', HttpStatus.NOT_FOUND);
 
-    let imageUrl: string | undefined;
-    let publicId: string | undefined;
+      // Upload ảnh
+      let imageUrl: string | undefined;
+      let publicId: string | undefined;
 
-    if (file) {
-      const uploaded = await this.cloudinaryService.uploadFile(file);
-      imageUrl = uploaded?.secure_url;
-      publicId = uploaded?.public_id;
-    }
+      if (file) {
+        const uploaded = await this.cloudinaryService.uploadFile(file);
+        imageUrl = uploaded?.secure_url;
+        publicId = uploaded?.public_id;
+      }
 
-    const category = this.categoryRepository.create({
-      ...createCategoryDto,
-      imageUrl,
-      publicId,
-      ...(parentExist ? { parent: parentExist } : {}),
+      const category = this.categoryRepository.create({
+        ...createCategoryDto,
+        department,
+        imageUrl,
+        publicId,
+      });
+      await manager.save(category);
+      return category;
     });
-
-    return this.categoryRepository.save(category);
   }
 
   async update(
     id: number,
     updateCategoryDto: UpdateCategoryDto,
-    file?: Express.Multer.File,
+    file: Express.Multer.File,
   ) {
-    const category = await this.categoryRepository.findOne({ where: { id } });
-    if (!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
+    return await this.dataSource.transaction(async (manager) => {
+      const category = await manager.findOne(Category, { where: { id } });
+      if (!category)
+        throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
+      const department = await manager.findOne(Department, {
+        where: { id: updateCategoryDto.departmentId },
+      });
+      if (!department)
+        throw new HttpException('Department not found', HttpStatus.NOT_FOUND);
 
-    if (updateCategoryDto.parentId !== null) {
-      const parentExist = await this.categoryRepository.findOne({where:{ id: updateCategoryDto.parentId }});
+      Object.assign(category, updateCategoryDto); // merge
+      category.department = department;
 
-      if (!parentExist) throw new HttpException('Parent category not found',HttpStatus.NOT_FOUND);
-      if (parentExist.id === id) throw new HttpException('Category cannot be its own parent',HttpStatus.BAD_REQUEST);
-      if (parentExist.parentId !== null)throw new HttpException('Cannot create a grandchild category. Maximum two levels of hierarchy are allowed.',HttpStatus.BAD_REQUEST);
-
-      category.parentId = parentExist.id;
-    }
-
-    Object.assign(category, updateCategoryDto);
-
-    // Upload ảnh
-    if (file) {
-      if (category.publicId) await this.cloudinaryService.deleteFile(category.publicId).catch(() => null);
-      const uploaded = await this.cloudinaryService.uploadFile(file);
-      category.imageUrl = uploaded?.secure_url;
-      category.publicId = uploaded?.public_id;
-    }
-
-    return await this.categoryRepository.update(id, category);
+      // upload ảnh
+      if (file) {
+        if (category.publicId)
+          await this.cloudinaryService
+            .deleteFile(category.publicId)
+            .catch(() => null);
+        const uploaded = await this.cloudinaryService.uploadFile(file);
+        category.imageUrl = uploaded?.secure_url;
+        category.publicId = uploaded?.public_id;
+      }
+      return await manager.save(category);
+    });
   }
 
-  async remove(id: number) {
-    const category = await this.categoryRepository.findOne({
-      where: { id },
-      relations: ['children'], 
+  async delete(id: number) {
+    return await this.dataSource.transaction(async (manager) => {
+      const category = await manager.findOne(Category, { where: { id } });
+      if (!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
+
+      if (category.publicId) await this.cloudinaryService.deleteFile(category.publicId).catch(() => null);
+
+      await manager.update(Category, id, { isActive: false });
+      return {
+        message: 'Category disabled successfully',
+        deletedId: id,
+      };
     });
-
-    if (!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
-
-    if (category.children && category.children.length > 0) throw new HttpException('Category cannot be deleted because it has children',HttpStatus.BAD_REQUEST);
-    
-
-    await this.categoryRepository.remove(category);
-
-    return {
-      message: 'Category deleted successfully',
-      deleteId: id,
-    };
   }
 
   async findAll(query: QueryDto) {
@@ -133,6 +141,18 @@ export class CategoriesService {
     console.log('data lay tu DB');
     await this.redis.set(redisKey, JSON.stringify(response), 'EX', 60);
     return response;
+  }
+
+  async getById(id: number) {
+    const category = await this.categoryRepository.findOne({ where: { id } });
+    if (!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
+    return category;
+  }
+
+  async getBySlug(slug: string) {
+    const category = await this.categoryRepository.findOne({ where: { slug } });
+    if (!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
+    return category;
   }
 
   async removeMultiple(deleteCategoriesDto: DeleteCategoriesDto) {

@@ -3,7 +3,7 @@ import { Order } from ".";
 import { Exclude } from "class-transformer";
 import { ProductVariant } from "src/modules/products/entities";
 
-@Entity()
+@Entity('order_items')
 export class OrderItem {
   @PrimaryGeneratedColumn()
   id: number;

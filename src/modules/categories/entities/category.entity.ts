@@ -1,7 +1,9 @@
+import { Department } from "src/modules/departments/entities/department.entity";
 import { Product } from "src/modules/products/entities/product.entity";
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import Helper from "src/utils/helpers";
+import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
-@Entity()
+@Entity('categories')
 export class Category {
   @PrimaryGeneratedColumn()
   id: number;
@@ -9,31 +11,38 @@ export class Category {
   @Column({ unique: true })
   name: string;
 
-  @Column({ nullable: true })
-  imageUrl: string;
-
-  @Column({ nullable: true })
-  publicId: string;
+  @Column({ unique: true })
+  slug: string;
 
   @Column({ nullable: true })
   description: string;
 
+  @Column()
+  imageUrl: string;
+
+  @Column()
+  publicId: string;
+
   @CreateDateColumn()
   createdAt: Date;
-  
+
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @Column({ nullable: true })
-  parentId?: number | null;
+  @Column({ type: 'boolean', default: true })
+  isActive: boolean;
 
-  @OneToMany(() => Category, category => category.parent)
-  children: Category[]
-
-  @ManyToOne(() => Category, category => category.children, { nullable: true })
-  @JoinColumn({ name: 'parentId' })
-  parent?: Category;
-
-  @OneToMany(() => Product, product => product.category)
+  @OneToMany(() => Product, (product) => product.category)
   products: Product[];
+
+  @ManyToOne(() => Department, (department) => department.categories)
+  department: Department;
+
+  @BeforeInsert()
+  @BeforeUpdate()
+  generateSlug() {
+    if (this.name) {
+      this.slug = Helper.makeSlugFromString(this.name);
+    }
+  }
 }

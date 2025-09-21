@@ -18,25 +18,28 @@ export class BrandsService {
     private readonly cloudinaryService: CloudinaryService,
   ) {}
 
-  async create(createBrandDto: CreateBrandDto, file?: Express.Multer.File) {
-    const alreadyExist = await this.brandRepository.findOne({where: { name: createBrandDto.name }});
-    if (alreadyExist) throw new HttpException('Brand already exist', HttpStatus.CONFLICT);
-
-    let imageUrl: string | undefined;
-    let publicId: string | undefined;
-
-    if (file) {
-      const uploaded = await this.cloudinaryService.uploadFile(file);
-      imageUrl = uploaded?.secure_url;
-      publicId = uploaded?.public_id;
-    }
-    return this.brandRepository.save(
-      this.brandRepository.create({
+  async create(createBrandDto: CreateBrandDto, file: Express.Multer.File) {
+    return await this.dataSource.transaction(async (manager) => {
+      const alreadyExist = await manager.findOne(Brand, { where: { name: createBrandDto.name } });
+      if (alreadyExist) throw new HttpException('Brand already exist', HttpStatus.CONFLICT);
+  
+      let imageUrl: string | undefined;
+      let publicId: string | undefined;
+  
+      if (file) {
+        const uploaded = await this.cloudinaryService.uploadFile(file);
+        imageUrl = uploaded?.secure_url;
+        publicId = uploaded?.public_id;
+      }
+  
+      const brand = this.brandRepository.create({
         ...createBrandDto,
         imageUrl,
         publicId,
-      }),
-    );
+      });
+      await manager.save(brand);
+      return brand;
+    })
   }
 
   async findAll(query: QueryDto) {
@@ -74,31 +77,34 @@ export class BrandsService {
     return response;
   }
 
-  async update(id: number, updateBrandDto: UpdateBrandDto, file?: Express.Multer.File) {
-    const brand = await this.brandRepository.findOne({ where: { id } });
-    if (!brand) throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
-    Object.assign(brand, updateBrandDto); // merge 
-    if (file) {
-      if (brand.publicId) await this.cloudinaryService.deleteFile(brand.publicId).catch(() => null)
-      const uploaded = await this.cloudinaryService.uploadFile(file);
-      console.log('updated: ', uploaded)
-      brand.imageUrl = uploaded?.secure_url;
-      brand.publicId = uploaded?.public_id;
-    }
-    return await this.brandRepository.update(id, brand);
+  async update(id: number, updateBrandDto: UpdateBrandDto, file: Express.Multer.File) {
+    return await this.dataSource.transaction(async (manager) => {
+      const brand = await manager.findOne(Brand, { where: { id } });
+      if (!brand) throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
+      Object.assign(brand, updateBrandDto); // merge 
+      if (file) {
+        if (brand.publicId) await this.cloudinaryService.deleteFile(brand.publicId).catch(() => null)
+        const uploaded = await this.cloudinaryService.uploadFile(file);
+        brand.imageUrl = uploaded?.secure_url;
+        brand.publicId = uploaded?.public_id;
+      }
+      return await manager.save(brand);
+    })
   }
 
   async delete(id: number) {
-    const brand = await this.brandRepository.findOne({ where: { id } });
-    if (!brand) throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
-
-    if (brand.publicId) await this.cloudinaryService.deleteFile(brand.publicId).catch(() => null);
-    
-    await this.brandRepository.remove(brand);
-    return {
-      message: 'Brand deleted successfully',
-      deletedId: id,
-    };
+    return await this.dataSource.transaction(async (manager) => {
+      const brand = await manager.findOne(Brand, { where: { id } });
+      if (!brand) throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
+  
+      if (brand.publicId) await this.cloudinaryService.deleteFile(brand.publicId).catch(() => null);
+      
+      await manager.update(Brand, { isActive: false }, { id });
+      return {
+        message: 'Brand disabled successfully',
+        deletedId: id,
+      };
+    })
   }
 
   async deleteMany(deleteBrandsDto: DeleteBrandsDto) {
@@ -118,5 +124,16 @@ export class BrandsService {
       return { deletedIds: ids };
     })
   }
-  
+
+  async getById(id: number) {
+    const brand = await this.brandRepository.findOne({ where: { id } });
+    if (!brand) throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
+    return brand;
+  }
+
+  async getBySlug(slug: string) {
+    const brand = await this.brandRepository.findOne({ where: { slug } });
+    if (!brand) throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
+    return brand;
+  }
 }

@@ -5,7 +5,7 @@ import { ProductVariant } from "./product-variant.entity";
 import { ProductImage } from "./product-image.entity";
 import { Exclude } from "class-transformer";
 
-@Entity()
+@Entity('products')
 export class Product {
   @PrimaryGeneratedColumn()
   id: number;

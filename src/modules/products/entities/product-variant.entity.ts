@@ -12,7 +12,7 @@ import { Exclude } from 'class-transformer';
 import { CartItem } from 'src/modules/carts/entities/cart-item.entity';
 import { OrderItem } from 'src/modules/orders/entities';
 
-@Entity()
+@Entity('product_variants')
 export class ProductVariant {
   @PrimaryGeneratedColumn()
   id: number;

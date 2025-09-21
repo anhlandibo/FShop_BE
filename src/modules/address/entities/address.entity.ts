@@ -3,7 +3,7 @@ import { AddressType } from "src/constants/address-type.enum";
 import { User } from "src/modules/users/entities/user.entity";
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
-@Entity()
+@Entity('addresses')
 export class Address {
   @PrimaryGeneratedColumn()
   id: number;

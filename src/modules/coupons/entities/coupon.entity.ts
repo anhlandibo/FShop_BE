@@ -3,7 +3,7 @@ import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, Up
 import { CouponTarget } from "./coupon-target.entity";
 import { CouponRedemption } from "./coupon-redemption.entity";
 
-@Entity()
+@Entity('coupons')
 export class Coupon {
   @PrimaryGeneratedColumn()
   id: number;

@@ -9,20 +9,20 @@ export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) { }
 
   @Post()
-  @UseInterceptors(FileInterceptor('file'))
-  create(@Body() createCategoryDto: CreateCategoryDto, @UploadedFile() file?: Express.Multer.File) {
-    return this.categoriesService.create(createCategoryDto, file);
+  @UseInterceptors(FileInterceptor('image'))
+  create(@Body() createCategoryDto: CreateCategoryDto, @UploadedFile() image: Express.Multer.File) {
+    return this.categoriesService.create(createCategoryDto, image);
   }
 
   @Patch(':id')
-  @UseInterceptors(FileInterceptor('file'))
-  update(@Param('id') id: number, @Body() updateCategoryDto: UpdateCategoryDto, @UploadedFile() file?: Express.Multer.File) {
-    return this.categoriesService.update(id, updateCategoryDto, file);
+  @UseInterceptors(FileInterceptor('image'))
+  update(@Param('id') id: number, @Body() updateCategoryDto: UpdateCategoryDto, @UploadedFile() image: Express.Multer.File) {
+    return this.categoriesService.update(id, updateCategoryDto, image);
   }
 
   @Delete(":id")
   remove(@Param("id") id: number) {
-    return this.categoriesService.remove(id);
+    return this.categoriesService.delete(id);
   }
 
   @Post("remove-multiple")
@@ -30,8 +30,18 @@ export class CategoriesController {
     return this.categoriesService.removeMultiple(deleteCategoriesDto);
   }
 
-  @Get()
+  @Get('all')
   findAll(@Query() query: QueryDto) {
     return this.categoriesService.findAll(query);
+  }
+
+  @Get(':id')
+  getById(@Param('id') id: number) {
+    return this.categoriesService.getById(id);
+  }
+
+  @Get('slugs/:slug')
+  getBySlug(@Param('slug') slug: string) {
+    return this.categoriesService.getBySlug(slug);
   }
 }

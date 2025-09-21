@@ -8,11 +8,8 @@ export class UpdateCategoryDto {
   @StringOptional()
   name: string;
 
-  @Transform(({ value }) =>
-    value === '' ? null : value ? Number(value) : null,
-  )
   @NumberOptional()
-  parentId?: number | null;
+  departmentId?: number;
 
   @StringOptional()
   description?: string;

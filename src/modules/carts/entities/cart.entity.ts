@@ -11,7 +11,7 @@ import {
 import { CartItem } from './cart-item.entity';
 import { on } from 'events';
 
-@Entity()
+@Entity('carts')
 export class Cart {
   @PrimaryGeneratedColumn()
   id: number;

@@ -12,7 +12,7 @@ import {
   OneToMany,
 } from 'typeorm';
 
-@Entity()
+@Entity('users')
 export class User {
   @PrimaryGeneratedColumn()
   id: number;

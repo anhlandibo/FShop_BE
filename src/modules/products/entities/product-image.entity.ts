@@ -2,7 +2,7 @@ import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Product } from './product.entity';
 import { Exclude } from 'class-transformer';
 
-@Entity()
+@Entity('product_images')
 export class ProductImage {
   @PrimaryGeneratedColumn()
   id: number;

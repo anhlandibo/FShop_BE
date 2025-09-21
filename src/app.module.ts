@@ -29,6 +29,7 @@ import { CartsModule } from './modules/carts/carts.module';
 import { AddressModule } from './modules/address/address.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { CouponsModule } from './modules/coupons/coupons.module';
+import { DepartmentsModule } from './modules/departments/departments.module';
 import path from 'path';
 
 @Module({
@@ -56,6 +57,7 @@ import path from 'path';
     AddressModule,
     OrdersModule,
     CouponsModule,
+    DepartmentsModule,
   ],
   controllers: [AppController],
   providers: [
