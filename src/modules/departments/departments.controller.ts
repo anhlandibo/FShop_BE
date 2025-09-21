@@ -15,7 +15,7 @@ export class DepartmentsController {
     return this.departmentsService.create(createDepartmentDto, image);
   }
 
-  @Get('all')
+  @Get()
   findAll(@Query() queryDto: QueryDto) {
     return this.departmentsService.findAll(queryDto);
   }

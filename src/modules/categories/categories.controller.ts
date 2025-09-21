@@ -30,7 +30,7 @@ export class CategoriesController {
     return this.categoriesService.removeMultiple(deleteCategoriesDto);
   }
 
-  @Get('all')
+  @Get()
   findAll(@Query() query: QueryDto) {
     return this.categoriesService.findAll(query);
   }

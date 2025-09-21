@@ -14,7 +14,7 @@ export class BrandsController {
     return this.brandsService.create(createBrandDto, image);
   }
 
-  @Get('all')
+  @Get()
   findAll(@Query() query: QueryDto) {
     return this.brandsService.findAll(query);
   }
@@ -30,7 +30,7 @@ export class BrandsController {
     return this.brandsService.delete(id);
   }
 
-  @Post('many')
+  @Post('remove-multiple')
   deleteMany(@Body() deleteBrandsDto: DeleteBrandsDto) {
     return this.brandsService.deleteMany(deleteBrandsDto);
   }
