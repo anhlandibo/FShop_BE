@@ -1,0 +1,70 @@
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { DataSource, Like, Repository } from 'typeorm';
+import { Attribute } from './entities/attribute.entity';
+import { CreateAttributeDto } from './dto/create-attribute.dto';
+import { QueryDto } from 'src/dto/query.dto';
+import { UpdateAttributeDto } from './dto/update-attribute.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+
+@Injectable()
+export class AttributesService {
+  constructor(
+    @InjectRepository(Attribute) private attributeRepository: Repository<Attribute>,
+    private readonly dataSource: DataSource,
+  ) {}
+
+  async create(createAttributeDto: CreateAttributeDto) {
+    return await this.dataSource.transaction(async (manager) => {
+      const existingAttribute = await manager.findOne(Attribute, {where: { name: createAttributeDto.name }});
+      if (existingAttribute) throw new HttpException('Attribute name already exist', HttpStatus.CONFLICT);
+      const attribute = manager.create(Attribute, {
+        ...createAttributeDto,
+      });
+      await manager.save(attribute);
+      return attribute;
+    })
+  }
+
+  async getAll(query: QueryDto) {
+    const { page, limit, search, sortBy = 'id', sortOrder = 'DESC' } = query;
+    const [data, total] = await this.attributeRepository.findAndCount({
+      where: search
+        ? [{ name: Like(`%${search}%`) }]
+        : {},
+      ...(page && limit && { take: limit, skip: (page - 1) * limit }),
+      order: { [sortBy]: sortOrder },
+    });
+    const response = {
+      pagination: {
+        total,
+        page,
+        limit,
+      },
+      data,
+    };
+    console.log('data lay tu DB');
+    return response;
+  }
+
+  async update(id: number, updateAttributeDto: UpdateAttributeDto) {
+    return await this.dataSource.transaction(async (manager) => {
+      const attribute = await manager.findOne(Attribute, { where: { id } });
+      if (!attribute) throw new HttpException('Attribute not found', HttpStatus.NOT_FOUND);
+      Object.assign(attribute, updateAttributeDto); // merge 
+      return await manager.save(attribute);
+    })
+  }
+
+  async delete(id: number) {
+    return await this.dataSource.transaction(async (manager) => {
+      const attribute = await manager.findOne(Attribute, { where: { id } });
+      if (!attribute) throw new HttpException('Attribute not found', HttpStatus.NOT_FOUND);
+
+      await manager.update(Attribute, { id }, { isActive: false });
+      return {
+        message: 'Attribute disabled successfully',
+        deletedId: id,
+      };
+    });
+  }
+}

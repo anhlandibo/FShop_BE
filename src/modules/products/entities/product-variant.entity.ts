@@ -56,6 +56,4 @@ export class ProductVariant {
 
   @OneToMany(() => OrderItem, orderItem => orderItem.variant)
   orderItems: OrderItem[];
-
- 
 }

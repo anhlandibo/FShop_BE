@@ -14,31 +14,19 @@ import { Department } from '../departments/entities/department.entity';
 @Injectable()
 export class CategoriesService {
   constructor(
-    @InjectRepository(Category)
-    private categoryRepository: Repository<Category>,
-    @InjectRepository(Department)
-    private departmentRepository: Repository<Department>,
+    @InjectRepository(Category) private categoryRepository: Repository<Category>,
+    @InjectRepository(Department) private departmentRepository: Repository<Department>,
     @InjectRedis() private readonly redis: Redis,
     private dataSource: DataSource,
     private readonly cloudinaryService: CloudinaryService,
   ) {}
 
-  async create(
-    createCategoryDto: CreateCategoryDto,
-    file: Express.Multer.File,
-  ) {
+  async create(createCategoryDto: CreateCategoryDto, file: Express.Multer.File) {
     return await this.dataSource.transaction(async (manager) => {
-      if (
-        await manager.findOne(Category, {
-          where: { name: createCategoryDto.name },
-        })
-      )
+      if (await manager.findOne(Category, {where: { name: createCategoryDto.name }}))
         throw new HttpException('Category already exist', HttpStatus.CONFLICT);
-      const department = await manager.findOne(Department, {
-        where: { id: createCategoryDto.departmentId },
-      });
-      if (!department)
-        throw new HttpException('Department not found', HttpStatus.NOT_FOUND);
+      const department = await manager.findOne(Department, {where: { id: createCategoryDto.departmentId }});
+      if (!department) throw new HttpException('Department not found', HttpStatus.NOT_FOUND);
 
       // Upload ảnh
       let imageUrl: string | undefined;

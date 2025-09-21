@@ -1,3 +1,4 @@
+import { AttributeCategory } from "src/modules/attributes/entities/attribute-category.entity";
 import { Department } from "src/modules/departments/entities/department.entity";
 import { Product } from "src/modules/products/entities/product.entity";
 import Helper from "src/utils/helpers";
@@ -34,6 +35,9 @@ export class Category {
 
   @OneToMany(() => Product, (product) => product.category)
   products: Product[];
+
+  @OneToMany(() => AttributeCategory, attributeCategory => attributeCategory.category)
+  attributeCategories: AttributeCategory[];
 
   @ManyToOne(() => Department, (department) => department.categories)
   department: Department;

@@ -4,7 +4,6 @@ import { Column, CreateDateColumn, Entity, ManyToOne, OneToMany, PrimaryGenerate
 import { ProductVariant } from "./product-variant.entity";
 import { ProductImage } from "./product-image.entity";
 import { Exclude } from "class-transformer";
-
 @Entity('products')
 export class Product {
   @PrimaryGeneratedColumn()

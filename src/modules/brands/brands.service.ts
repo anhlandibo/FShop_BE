@@ -99,7 +99,7 @@ export class BrandsService {
   
       if (brand.publicId) await this.cloudinaryService.deleteFile(brand.publicId).catch(() => null);
       
-      await manager.update(Brand, { isActive: false }, { id });
+      await manager.update(Brand, { id }, { isActive: false });
       return {
         message: 'Brand disabled successfully',
         deletedId: id,

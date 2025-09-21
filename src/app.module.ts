@@ -30,6 +30,7 @@ import { AddressModule } from './modules/address/address.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { CouponsModule } from './modules/coupons/coupons.module';
 import { DepartmentsModule } from './modules/departments/departments.module';
+import { AttributesModule } from './modules/attributes/attributes.module';
 import path from 'path';
 
 @Module({
@@ -58,6 +59,7 @@ import path from 'path';
     OrdersModule,
     CouponsModule,
     DepartmentsModule,
+    AttributesModule,
   ],
   controllers: [AppController],
   providers: [
