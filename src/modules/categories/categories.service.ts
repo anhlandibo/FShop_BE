@@ -10,12 +10,13 @@ import { hashKey } from 'src/utils/hash';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { CreateCategoryDto, UpdateCategoryDto, DeleteCategoriesDto } from './dto';
 import { Department } from '../departments/entities/department.entity';
+import { AttributeCategory } from '../attributes/entities/attribute-category.entity';
+import { CreateAttributeValueDto } from '../attributes/dto/create-attribute-value.dto';
 
 @Injectable()
 export class CategoriesService {
   constructor(
     @InjectRepository(Category) private categoryRepository: Repository<Category>,
-    @InjectRepository(Department) private departmentRepository: Repository<Department>,
     @InjectRedis() private readonly redis: Redis,
     private dataSource: DataSource,
     private readonly cloudinaryService: CloudinaryService,
@@ -23,10 +24,19 @@ export class CategoriesService {
 
   async create(createCategoryDto: CreateCategoryDto, file: Express.Multer.File) {
     return await this.dataSource.transaction(async (manager) => {
-      if (await manager.findOne(Category, {where: { name: createCategoryDto.name }}))
+      // check trùng tên
+      if (
+        await manager.findOne(Category, {
+          where: { name: createCategoryDto.name },
+        })
+      )
         throw new HttpException('Category already exist', HttpStatus.CONFLICT);
-      const department = await manager.findOne(Department, {where: { id: createCategoryDto.departmentId }});
-      if (!department) throw new HttpException('Department not found', HttpStatus.NOT_FOUND);
+      // check department
+      const department = await manager.findOne(Department, {
+        where: { id: createCategoryDto.departmentId },
+      });
+      if (!department)
+        throw new HttpException('Department not found', HttpStatus.NOT_FOUND);
 
       // Upload ảnh
       let imageUrl: string | undefined;
@@ -38,6 +48,20 @@ export class CategoriesService {
         publicId = uploaded?.public_id;
       }
 
+      let attributes: CreateAttributeValueDto[] = [];
+      if (createCategoryDto.attributes) {
+        if (typeof createCategoryDto.attributes === 'string') {
+          try {
+            attributes = JSON.parse(createCategoryDto.attributes);
+          } catch (e) {
+            throw new HttpException(
+              'Invalid attributes JSON',
+              HttpStatus.BAD_REQUEST,
+            );
+          }
+        } else attributes = createCategoryDto.attributes;
+      }
+
       const category = this.categoryRepository.create({
         ...createCategoryDto,
         department,
@@ -45,27 +69,35 @@ export class CategoriesService {
         publicId,
       });
       await manager.save(category);
+
+      // Tạo AttributeCategory records
+      if (attributes.length > 0) {
+        const attributeEntities = attributes.map((attr) =>
+          manager.create('AttributeCategory', {
+            attribute: { id: attr.attributeId },
+            category,
+            value: attr.value,
+          }),
+        );
+        await manager.save('AttributeCategory', attributeEntities);
+      }
+
       return category;
     });
   }
 
-  async update(
-    id: number,
-    updateCategoryDto: UpdateCategoryDto,
-    file: Express.Multer.File,
-  ) {
+  async update(id: number, updateCategoryDto: UpdateCategoryDto, file?: Express.Multer.File) {
     return await this.dataSource.transaction(async (manager) => {
-      const category = await manager.findOne(Category, { where: { id } });
+      const category = await manager.findOne(Category, { where: { id }, relations: ['attributeCategories', 'department']});
       if (!category)
         throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
-      const department = await manager.findOne(Department, {
-        where: { id: updateCategoryDto.departmentId },
-      });
-      if (!department)
-        throw new HttpException('Department not found', HttpStatus.NOT_FOUND);
-
+      // Update department
+      if (updateCategoryDto.departmentId) {
+        const department = await manager.findOne(Department, {where: { id: updateCategoryDto.departmentId }});
+        if (!department) throw new HttpException('Department not found', HttpStatus.NOT_FOUND);
+        category.department = department;
+      }
       Object.assign(category, updateCategoryDto); // merge
-      category.department = department;
 
       // upload ảnh
       if (file) {
@@ -77,7 +109,34 @@ export class CategoriesService {
         category.imageUrl = uploaded?.secure_url;
         category.publicId = uploaded?.public_id;
       }
-      return await manager.save(category);
+      await manager.save(category);
+
+      // Update attributes
+      if (updateCategoryDto.attributes) {
+        const incoming = updateCategoryDto.attributes;
+        const incomingMap = new Map<number, string>(incoming.map((attr) => [attr.attributeId, attr.value]));
+
+        for (const attrCat of category.attributeCategories) {
+          if (incomingMap.has(attrCat.attribute.id)) {
+            const newValue = incomingMap.get(attrCat.attribute.id);
+            if (newValue !== undefined && newValue !== attrCat.value) {
+              attrCat.value = newValue; // thay đổi value
+              await manager.save(attrCat);
+            }
+            incomingMap.delete(attrCat.attribute.id);
+          } else await manager.remove(attrCat);
+        }
+        // attributes mới
+        for (const [id, value] of incomingMap) {
+          const newAttrCat = manager.create(AttributeCategory, {
+            attribute: { id },
+            category,
+            value,
+          });
+        }
+      }
+
+      return category;
     });
   }
 
@@ -87,7 +146,8 @@ export class CategoriesService {
       if (!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
 
       if (category.publicId) await this.cloudinaryService.deleteFile(category.publicId).catch(() => null);
-
+      // hard delete cho các record attribute-category
+      await manager.delete(AttributeCategory, { category: { id } });
       await manager.update(Category, id, { isActive: false });
       return {
         message: 'Category disabled successfully',
@@ -117,6 +177,7 @@ export class CategoriesService {
         : {},
       ...(page && limit && { take: limit, skip: (page - 1) * limit }),
       order: { [sortBy]: sortOrder },
+      relations: ['attributeCategories'],
     });
     const response = {
       pagination: {

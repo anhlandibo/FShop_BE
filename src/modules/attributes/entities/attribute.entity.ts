@@ -14,6 +14,4 @@ export class Attribute {
 
   @OneToMany(() => AttributeCategory, attributeCategory => attributeCategory.attribute)
   attributeCategories: AttributeCategory[];
-
-
 }

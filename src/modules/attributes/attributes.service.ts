@@ -33,6 +33,7 @@ export class AttributesService {
         : {},
       ...(page && limit && { take: limit, skip: (page - 1) * limit }),
       order: { [sortBy]: sortOrder },
+      relations: ['attributeCategories'],
     });
     const response = {
       pagination: {
