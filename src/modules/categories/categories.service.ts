@@ -25,19 +25,12 @@ export class CategoriesService {
   async create(createCategoryDto: CreateCategoryDto, file: Express.Multer.File) {
     return await this.dataSource.transaction(async (manager) => {
       // check trùng tên
-      if (
-        await manager.findOne(Category, {
-          where: { name: createCategoryDto.name },
-        })
-      )
+      if (await manager.findOne(Category, {where: { name: createCategoryDto.name }}))
         throw new HttpException('Category already exist', HttpStatus.CONFLICT);
       // check department
-      const department = await manager.findOne(Department, {
-        where: { id: createCategoryDto.departmentId },
-      });
-      if (!department)
-        throw new HttpException('Department not found', HttpStatus.NOT_FOUND);
-
+      const department = await manager.findOne(Department, { where: { id: createCategoryDto.departmentId }});
+      if (!department) throw new HttpException('Department not found', HttpStatus.NOT_FOUND);
+        
       // Upload ảnh
       let imageUrl: string | undefined;
       let publicId: string | undefined;
@@ -54,10 +47,7 @@ export class CategoriesService {
           try {
             attributes = JSON.parse(createCategoryDto.attributes);
           } catch (e) {
-            throw new HttpException(
-              'Invalid attributes JSON',
-              HttpStatus.BAD_REQUEST,
-            );
+            throw new HttpException('Invalid attributes JSON', HttpStatus.BAD_REQUEST);
           }
         } else attributes = createCategoryDto.attributes;
       }

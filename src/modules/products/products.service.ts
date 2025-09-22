@@ -14,28 +14,26 @@ import { hashKey } from 'src/utils/hash';
 import { Brand } from '../brands/entities/brand.entity';
 import { Category } from '../categories/entities/category.entity';
 import { plainToInstance } from 'class-transformer';
+import { VariantAttributeValue } from './entities/variant-attribute-value.entity';
+import { AttributeCategory } from '../attributes/entities/attribute-category.entity';
 
 @Injectable()
 export class ProductsService {
   constructor(
-    @InjectRepository(Product)
-    private productRepository: Repository<Product>,
-    @InjectRepository(ProductVariant)
-    private productVariantRepository: Repository<ProductVariant>,
-    @InjectRepository(ProductImage)
-    private productImageRepository: Repository<ProductImage>,
+    @InjectRepository(Product) private productRepository: Repository<Product>,
+    @InjectRepository(ProductVariant) private productVariantRepository: Repository<ProductVariant>,
+    @InjectRepository(ProductImage) private productImageRepository: Repository<ProductImage>,
     @InjectRepository(Brand) private brandRepository: Repository<Brand>,
-    @InjectRepository(Category)
-    private categoryRepository: Repository<Category>,
+    @InjectRepository(Category) private categoryRepository: Repository<Category>,
     @InjectRedis() private readonly redis: Redis,
     private dataSource: DataSource,
     private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   async create(
-    createProductDto: CreateProductDto,
-    images: Array<Express.Multer.File>,
-    variantImages: Array<Express.Multer.File>,
+    createProductDto: CreateProductDto, 
+    images: Array<Express.Multer.File>, 
+    variantImages: Array<Express.Multer.File>
   ) {
     return await this.dataSource.transaction(async (manager) => {
       // Check trùng tên
@@ -81,17 +79,35 @@ export class ProductsService {
             imageUrl,
             publicId,
           });
-          variants.push(variant);
+          const savedVariant = await manager.save(variant);
+
+          // Tạo attribute cho variant
+          const attributeValues: VariantAttributeValue[] = [];
+          if (variantDto.attributes && variantDto.attributes.length > 0) {
+            for (const attr of variantDto.attributes) {
+              const attributeCategory = await manager.findOne(AttributeCategory, {
+              where: { id: attr.attributeCategoryId }});
+
+              if (!attributeCategory) 
+                throw new HttpException('Attribute category not found', HttpStatus.NOT_FOUND);
+
+              const variantAttributeValue = manager.create(VariantAttributeValue, {
+                productVariant: savedVariant,
+                attributeCategory,
+              });
+              attributeValues.push(variantAttributeValue);
+            }
+            await manager.save(attributeValues);
+            savedVariant.variantAttributeValues = attributeValues;
+          }
+          variants.push(savedVariant);
         }
       } 
       else {
-        const defaultVariant = manager.create(ProductVariant, {
-          size: 'Default',
-          color: 'Default',
-          product: savedProduct,
-        });
+        const defaultVariant = manager.create(ProductVariant, {product: savedProduct});
+        variants.push(await manager.save(defaultVariant));
       }
-      await manager.save(variants);
+      // await manager.save(variants);
 
       // Product images
       const uploads = await Promise.all(images.map((image) => this.cloudinaryService.uploadFile(image)));
