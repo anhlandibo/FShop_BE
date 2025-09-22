@@ -5,6 +5,8 @@ import { CreateAttributeDto } from './dto/create-attribute.dto';
 import { QueryDto } from 'src/dto/query.dto';
 import { UpdateAttributeDto } from './dto/update-attribute.dto';
 import { InjectRepository } from '@nestjs/typeorm';
+import { AttributeCategory } from './entities/attribute-category.entity';
+import { Category } from '../categories/entities/category.entity';
 
 @Injectable()
 export class AttributesService {
@@ -66,6 +68,25 @@ export class AttributesService {
         message: 'Attribute disabled successfully',
         deletedId: id,
       };
+    });
+  }
+
+  async getAttributeCategory(categoryId: number, attributeId: number) {
+    return await this.dataSource.transaction(async (manager) => {
+      const attribute = await manager.findOne(Attribute, { where: { id: attributeId } });
+      if (!attribute) throw new HttpException('Attribute not found', HttpStatus.NOT_FOUND);
+
+      const category = await manager.findOne(Category, { where: { id: categoryId } });
+      if (!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
+
+      const attributeCategory = await manager.findOne(AttributeCategory, {
+        where: {
+          category: { id: categoryId },
+          attribute: { id: attributeId },
+        }
+      });
+      if (!attributeCategory) throw new HttpException('Attribute category not found', HttpStatus.NOT_FOUND);
+      return attributeCategory;
     });
   }
 }

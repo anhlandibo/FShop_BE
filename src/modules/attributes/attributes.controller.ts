@@ -27,4 +27,9 @@ export class AttributesController {
   delete(@Param('id') id: number) {
     return this.attributesService.delete(id);
   }
+
+  @Get(':categoryId/:attributeId')
+  getAttributeCategory(@Param('categoryId') categoryId: number, @Param('attributeId') attributeId: number) {
+    return this.attributesService.getAttributeCategory(categoryId, attributeId);
+  }
 }

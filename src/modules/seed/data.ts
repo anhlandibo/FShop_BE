@@ -3,7 +3,6 @@ import { Brand } from "src/modules/brands/entities/brand.entity";
 import { Category } from "src/modules/categories/entities/category.entity";
 import { User } from "../users/entities/user.entity";
 import { ProductImage } from "../products/entities/product-image.entity";
-import { ProductVariant } from "../products/entities/product-variant.entity";
 import { Product } from "../products/entities/product.entity";
 
 export const brandSeed: Partial<Brand>[] = [
@@ -288,26 +287,7 @@ export const productSeed: Partial<Product>[] = [
 ];
 
 // ✅ Variants
-export const productVariantSeed: Partial<ProductVariant>[] = [
-  // Nike Air Force 1
-  { size: 'US 9', color: 'White', imageUrl: 'https://static.nike.com/a/images/af1-white.jpg', publicId: "product_variant_nike_af1_white", quantity: 100, remaining: 95, price: 120.0, product: { id: 1 } as any },
-  { size: 'US 10', color: 'Black', imageUrl: 'https://static.nike.com/a/images/af1-black.jpg', publicId: "product_variant_nike_af1_black", quantity: 80, remaining: 75, price: 120.0, product: { id: 1 } as any },
 
-  // Adidas Ultraboost
-  { size: 'US 9', color: 'Blue', imageUrl: 'https://assets.adidas.com/ultraboost-blue.jpg', publicId: "product_variant_adidas_ultraboost_blue", quantity: 50, remaining: 48, price: 180.0, product: { id: 3 } as any },
-  { size: 'US 10', color: 'White', imageUrl: 'https://assets.adidas.com/ultraboost-white.jpg', publicId: "product_variant_adidas_ultraboost_white", quantity: 60, remaining: 59, price: 180.0, product: { id: 3 } as any }, 
-
-  // Levi’s Jeans
-  { size: '32', color: 'Denim Blue', imageUrl: 'https://lsco.scene7.com/501-jeans.jpg', publicId: "product_variant_levis_jeans_blue", quantity: 60, remaining: 58, price: 90.0, product: { id: 5 } as any },
-  { size: '34', color: 'Black Denim', imageUrl: 'https://lsco.scene7.com/501-black.jpg', publicId: "product_variant_levis_jeans_black", quantity: 50, remaining: 47, price: 95.0, product: { id: 5 } as any },
-
-  // Zara T-Shirt
-  { size: 'M', color: 'Gray', imageUrl: 'https://static.zara.net/tshirt-gray.jpg', publicId: "product_variant_zara_tshirt_gray", quantity: 150, remaining: 145, price: 25.0, product: { id: 7 } as any },
-  { size: 'L', color: 'White', imageUrl: 'https://static.zara.net/tshirt-white.jpg', publicId: "product_variant_zara_tshirt_white", quantity: 120, remaining: 118, price: 25.0, product: { id: 7 } as any },
-
-  // Gucci Ace Sneakers
-  { size: 'EU 42', color: 'White/Green', imageUrl: 'https://media.gucci.com/ace-white-green.jpg', publicId: "product_variant_gucci_ace_white_green", quantity: 20, remaining: 18, price: 650.0, product: { id: 13 } as any },
-];
 
 // ✅ Images
 export const productImageSeed: Partial<ProductImage>[] = [

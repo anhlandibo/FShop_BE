@@ -3,7 +3,7 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, Transaction } from 'typeorm';
 import { Category } from '../categories/entities/category.entity';
 import { Brand } from '../brands/entities/brand.entity';
-import { brandSeed, categorySeed, productImageSeed, productSeed, productVariantSeed, userSeed } from './data';
+import { brandSeed, categorySeed, productImageSeed, productSeed, userSeed } from './data';
 import { User } from '../users/entities/user.entity';
 import { hashPassword } from 'src/utils/hash';
 import { Product } from '../products/entities/product.entity';
@@ -35,7 +35,7 @@ export class SeedService {
       );
       await manager.getRepository(User).save(usersWithHashed);
       await manager.getRepository(Product).save(productSeed);
-      await manager.getRepository(ProductVariant).save(productVariantSeed);
+      // await manager.getRepository(ProductVariant).save(productVariantSeed);
       await manager.getRepository(ProductImage).save(productImageSeed);
     });
   }

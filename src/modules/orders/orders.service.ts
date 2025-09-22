@@ -61,7 +61,7 @@ export class OrdersService {
           order,
           variant: cartItem.variant,
           quantity: item.quantity,
-          price: cartItem.variant.price
+          // price: cartItem.variant.price
         })
         await manager.save(orderItem);
         totalAmount += item.quantity * orderItem.price;
