@@ -1,10 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
-import {
-  NumberRequired,
-  StringOptional,
-  StringRequired,
-} from 'src/decorators/dto.decorator';
+import {NumberRequired, StringOptional, StringRequired} from 'src/decorators/dto.decorator';
 import { CreateProductVariantDto } from './create-variant.dto';
 import {
   IsArray,
@@ -14,16 +10,19 @@ import {
 import { plainToInstance, Transform, Type } from 'class-transformer';
 
 export class CreateProductDto {
-  @StringRequired('Product name')
+  @StringRequired('Product Name')
   name: string;
 
   @StringOptional()
   description?: string;
 
-  @NumberRequired('Category id')
+  @NumberRequired('Product Price')
+  price: number;
+
+  @NumberRequired('Category Id')
   categoryId: number;
 
-  @NumberRequired('Brand id')
+  @NumberRequired('Brand Id')
   brandId: number;
 
   @IsArray()

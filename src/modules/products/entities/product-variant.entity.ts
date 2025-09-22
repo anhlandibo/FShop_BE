@@ -11,17 +11,12 @@ import { Product } from './product.entity';
 import { Exclude } from 'class-transformer';
 import { CartItem } from 'src/modules/carts/entities/cart-item.entity';
 import { OrderItem } from 'src/modules/orders/entities';
+import { VariantAttributeValue } from './variant-attribute-value.entity';
 
 @Entity('product_variants')
 export class ProductVariant {
   @PrimaryGeneratedColumn()
   id: number;
-
-  @Column({ nullable: true })
-  size: string;
-
-  @Column({ nullable: true })
-  color: string;
 
   @Column({ nullable: true })
   imageUrl: string;
@@ -34,9 +29,6 @@ export class ProductVariant {
 
   @Column({ default: 0 })
   remaining: number;
-
-  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
-  price: number;
 
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
@@ -56,4 +48,7 @@ export class ProductVariant {
 
   @OneToMany(() => OrderItem, orderItem => orderItem.variant)
   orderItems: OrderItem[];
+
+  @OneToMany(() => VariantAttributeValue, variantAttributeValue => variantAttributeValue.productVariant)
+  variantAttributeValues: VariantAttributeValue[];
 }

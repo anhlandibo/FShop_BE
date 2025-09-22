@@ -46,6 +46,7 @@ export class DepartmentsService {
 
   async findAll(query: QueryDto) {
     const { page, limit, search, sortBy = 'id', sortOrder = 'DESC' } = query;
+    /* Redis
     const redisKey = hashKey('departments', query);
     const cachedData: string | null = await this.redis.get(redisKey);
     if (cachedData) {
@@ -59,6 +60,7 @@ export class DepartmentsService {
         data: Department[];
       };
     }
+    */
     const [data, total] = await this.departmentRepository.findAndCount({
       where: search
         ? [{ name: Like(`%${search}%`) }, { description: Like(`%${search}%`) }]
@@ -75,7 +77,7 @@ export class DepartmentsService {
       data,
     };
     console.log('data lay tu DB');
-    await this.redis.set(redisKey, JSON.stringify(response), 'EX', 60);
+    // await this.redis.set(redisKey, JSON.stringify(response), 'EX', 60);
     return response;
   }
 

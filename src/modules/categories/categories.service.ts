@@ -86,6 +86,7 @@ export class CategoriesService {
     });
   }
 
+  // logic còn vấn đề
   async update(id: number, updateCategoryDto: UpdateCategoryDto, file?: Express.Multer.File) {
     return await this.dataSource.transaction(async (manager) => {
       const category = await manager.findOne(Category, { where: { id }, relations: ['attributeCategories', 'department']});
@@ -158,6 +159,7 @@ export class CategoriesService {
 
   async findAll(query: QueryDto) {
     const { page, limit, search, sortBy = 'id', sortOrder = 'DESC' } = query;
+    /* Redis
     const redisKey = hashKey('categories', query);
     const cachedData: string | null = await this.redis.get(redisKey);
     if (cachedData) {
@@ -171,6 +173,7 @@ export class CategoriesService {
         data: Category[];
       };
     }
+    */ 
     const [data, total] = await this.categoryRepository.findAndCount({
       where: search
         ? [{ name: Like(`%${search}%`) }, { description: Like(`%${search}%`) }]
@@ -188,18 +191,18 @@ export class CategoriesService {
       data,
     };
     console.log('data lay tu DB');
-    await this.redis.set(redisKey, JSON.stringify(response), 'EX', 60);
+    // await this.redis.set(redisKey, JSON.stringify(response), 'EX', 60);
     return response;
   }
 
   async getById(id: number) {
-    const category = await this.categoryRepository.findOne({ where: { id } });
+    const category = await this.categoryRepository.findOne({ where: { id }, relations: ['attributeCategories', 'department'] });
     if (!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
     return category;
   }
 
   async getBySlug(slug: string) {
-    const category = await this.categoryRepository.findOne({ where: { slug } });
+    const category = await this.categoryRepository.findOne({ where: { slug }, relations: ['attributeCategories', 'department'] });
     if (!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
     return category;
   }
@@ -217,8 +220,8 @@ export class CategoriesService {
           HttpStatus.NOT_FOUND,
         );
       }
-
-      await manager.remove(categories);
+      await manager.delete(AttributeCategory, { category: { id: In(ids) }});
+      await manager.update(Category, { id: In(ids) }, { isActive: false });
 
       return { deletedIds: ids };
     });

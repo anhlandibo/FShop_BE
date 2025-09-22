@@ -16,7 +16,7 @@ export class CategoriesController {
 
   @Patch(':id')
   @UseInterceptors(FileInterceptor('image'))
-  update(@Param('id') id: number, @Body() updateCategoryDto: UpdateCategoryDto, @UploadedFile() image: Express.Multer.File) {
+  update(@Param('id') id: number, @Body() updateCategoryDto: UpdateCategoryDto, @UploadedFile() image?: Express.Multer.File) {
     return this.categoriesService.update(id, updateCategoryDto, image);
   }
 

@@ -1,6 +1,7 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Attribute } from "./attribute.entity";
 import { Category } from "src/modules/categories/entities/category.entity";
+import { VariantAttributeValue } from "src/modules/products/entities/variant-attribute-value.entity";
 
 @Entity('attribute_categories')
 export class AttributeCategory {
@@ -17,4 +18,7 @@ export class AttributeCategory {
 
   @Column()
   value: string
+
+  @OneToMany(() => VariantAttributeValue, variantAttributeValue => variantAttributeValue.attributeCategory)
+  variantAttributeValues: VariantAttributeValue[];
 }
