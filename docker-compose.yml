@@ -1,4 +1,22 @@
 services:
+  backend:
+    build: .
+    container_name: fshop_backend
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: username
+      DATABASE_PASSWORD: 123456
+      DATABASE_NAME: fshop_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    command: npm run start:prod
   postgres:
     image: postgres:16-alpine
     container_name: fshop_postgres

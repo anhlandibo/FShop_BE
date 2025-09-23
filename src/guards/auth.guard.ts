@@ -14,25 +14,14 @@ import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-    constructor(
-        private jwtService: JwtService,
-        private configService: ConfigService
-    ) { }
+    constructor(private jwtService: JwtService, private configService: ConfigService) {}
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
         const request = context.switchToHttp().getRequest();
-        const token = request.cookies.access_token
-        // console.log(token)
-        if (!token) {
-            throw new HttpException("No access token is provided", HttpStatus.UNAUTHORIZED);
-        }
+        const token = request.cookies.access_token;
+        if (!token) throw new HttpException("No access token is provided", HttpStatus.UNAUTHORIZED);
         try {
-            const payload = await this.jwtService.verifyAsync(
-                token,
-                {
-                    secret: this.configService.get<string>("JWT_SECRET")
-                }
-            );
+            const payload = await this.jwtService.verifyAsync(token, {secret: this.configService.get<string>("JWT_SECRET")});
             request['user'] = payload;
         } catch {
             throw new HttpException("Invalid access token", HttpStatus.UNAUTHORIZED);
