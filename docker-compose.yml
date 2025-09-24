@@ -4,7 +4,7 @@ services:
     container_name: fshop_backend
     restart: always
     ports:
-      - "3000:3000"
+      - "4000:4000"
     depends_on:
       - postgres
       - redis
@@ -16,7 +16,7 @@ services:
       DATABASE_NAME: fshop_db
       REDIS_HOST: redis
       REDIS_PORT: 6379
-    command: npm run start:prod
+    command: node dist/main.js 
   postgres:
     image: postgres:16-alpine
     container_name: fshop_postgres
