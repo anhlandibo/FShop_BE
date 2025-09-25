@@ -103,4 +103,14 @@ export class AttributesService {
       return attributeCategories;
     });
   }
+
+  async getAttributeCategoriesBySlug(slug: string) {
+    return await this.dataSource.transaction(async (manager) => {
+      const category = await manager.findOne(Category, { where: { slug } });
+      if (!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
+
+      const attributeCategories = await manager.find(AttributeCategory, {where: {category: { slug }}});
+      return attributeCategories;
+    })
+  }
 }

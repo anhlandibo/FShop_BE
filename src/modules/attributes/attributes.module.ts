@@ -9,6 +9,7 @@ import { VariantAttributeValue } from '../products/entities/variant-attribute-va
 @Module({
   controllers: [AttributesController],
   providers: [AttributesService],
-  imports: [TypeOrmModule.forFeature([Attribute, AttributeCategory, VariantAttributeValue])]
+  imports: [TypeOrmModule.forFeature([Attribute, AttributeCategory, VariantAttributeValue])],
+  exports: [AttributesService],
 })
 export class AttributesModule {}
