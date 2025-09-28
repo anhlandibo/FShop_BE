@@ -3,10 +3,11 @@ import { CategoriesService } from './categories.service';
 import { QueryDto } from 'src/dto/query.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CreateCategoryDto, UpdateCategoryDto, DeleteCategoriesDto } from './dto';
+import { AttributesService } from '../attributes/attributes.service';
 
 @Controller('categories')
 export class CategoriesController {
-  constructor(private readonly categoriesService: CategoriesService) { }
+  constructor(private readonly categoriesService: CategoriesService, private readonly attributesService: AttributesService){ }
 
   @Post()
   @UseInterceptors(FileInterceptor('image'))
@@ -43,5 +44,23 @@ export class CategoriesController {
   @Get('slugs/:slug')
   getBySlug(@Param('slug') slug: string) {
     return this.categoriesService.getBySlug(slug);
+  }
+
+  @Get(':categoryId/attributes')
+  getAttributeCategories(@Param('categoryId') categoryId: number) {
+    return this.attributesService.getAttributeCategories(categoryId);
+  }
+
+  @Get(':categoryId/attributes/:attributeId')
+  getAttributeCategory(
+    @Param('categoryId') categoryId: number,
+    @Param('attributeId') attributeId: number,
+  ) {
+    return this.attributesService.getAttributeCategory(categoryId, attributeId);
+  }
+
+  @Get('slug/:slug/attributes')
+  getAttributeCategoriesBySlug(@Param('slug') slug: string) {
+    return this.attributesService.getAttributeCategoriesBySlug(slug);
   }
 }
