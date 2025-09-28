@@ -18,7 +18,7 @@ export class DepartmentsService {
     @InjectRedis() private readonly redis: Redis,
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly cloudinaryService: CloudinaryService,
-  ) {}
+  ) { }
 
   async create(createDepartmentDto: CreateDepartmentDto, file: Express.Multer.File) {
     return await this.dataSource.transaction(async (manager) => {
@@ -67,6 +67,7 @@ export class DepartmentsService {
         : {},
       ...(page && limit && { take: limit, skip: (page - 1) * limit }),
       order: { [sortBy]: sortOrder },
+      relations: ['categories']
     });
     const response = {
       pagination: {
