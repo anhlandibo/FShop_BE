@@ -49,6 +49,14 @@ export class AttributesService {
     return response;
   }
 
+  async getAttributeById(id: number) {
+    return await this.dataSource.transaction(async (manager) => {
+      const attribute = await manager.findOne(Attribute, { where: { id } });
+      if (!attribute) throw new HttpException('Attribute not found', HttpStatus.NOT_FOUND);
+      return attribute;
+    })
+  }
+
   async update(id: number, updateAttributeDto: UpdateAttributeDto) {
     return await this.dataSource.transaction(async (manager) => {
       const attribute = await manager.findOne(Attribute, { where: { id } });
@@ -70,6 +78,8 @@ export class AttributesService {
       };
     });
   }
+
+
 
   async getAttributeCategory(categoryId: number, attributeId: number) {
     return await this.dataSource.transaction(async (manager) => {

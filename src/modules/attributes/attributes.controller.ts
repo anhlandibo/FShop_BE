@@ -28,5 +28,10 @@ export class AttributesController {
     return this.attributesService.delete(id);
   }
 
+  @Get(':id')
+  getAttributeById(@Param('id') id: number) {
+    return this.attributesService.getAttributeById(id);
+  }
+
   
 }
