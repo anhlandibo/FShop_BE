@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
+import { ApiProperty } from '@nestjs/swagger';
 import { plainToInstance, Transform, Type } from 'class-transformer';
 import { IsOptional, IsArray, ValidateNested } from 'class-validator';
 import {
@@ -35,5 +36,6 @@ export class UpdateCategoryDto {
     return value;
   })
   @Type(() => CreateAttributeValueDto)
+  @ApiProperty({ type: [CreateAttributeValueDto], description: 'Attribute values' })
   attributes?: CreateAttributeValueDto[];
 }
