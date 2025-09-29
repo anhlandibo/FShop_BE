@@ -48,16 +48,22 @@ export class AuthService {
 
     const access_token = await this.jwtService.signAsync(payload, {
       secret: this.configService.get<string>('JWT_SECRET'),
-      expiresIn:
-        this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') || '15m',
+      expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') || '15m',
     });
 
     const refresh_token = await this.jwtService.signAsync(payload, {
       secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-      expiresIn:
-        this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || '7d',
+      expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || '7d',
     });
 
     return { access_token, refresh_token };
+  }
+
+  async validateUser(email: string, password: string) {
+    const user = await this.usersService.findByEmail(email);
+    if (!user) return null;
+    const isMatch = await comparePassword(password, user.password);
+    if (!isMatch) return null;
+    return user;
   }
 }
