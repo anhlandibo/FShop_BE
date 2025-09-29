@@ -4,8 +4,9 @@ import { AuthService } from './auth.service';
 import { LoginAuthDto } from './dto/login-auth.dto';
 import { Response } from 'express';
 import { RefreshTokenDto } from './dto/refresh-dto';
-import { AuthGuard } from 'src/guards/auth.guard';
 import { ApiOperation, ApiUnauthorizedResponse } from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
+import { Auth } from './entities/auth.entity';
 
 @Controller('auth')
 export class AuthController {
@@ -32,13 +33,14 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @UseGuards(AuthGuard('jwt-refresh'))
   @ApiOperation({summary: 'Refresh access token'})
   @ApiUnauthorizedResponse({description: 'Error while refresh token'})
   async refresh(@Body() refreshTokenDto: RefreshTokenDto) {
     return this.authService.refresh(refreshTokenDto.refreshToken);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard('jwt'))
   @Get('me')
   @ApiOperation({summary: 'Get user information'})
   me(@Req() req: Request){

@@ -71,7 +71,7 @@ export class CartsService {
   }
 
   async getCart(cartId: number){
-    const cart = await this.cartRepository.findOne({where: {id: cartId}, relations: ['items', 'items.variant.id']});
+    const cart = await this.cartRepository.findOne({where: {id: cartId}, relations: ['items', 'items.variant']});
     if (!cart) throw new HttpException('Cart not found', HttpStatus.NOT_FOUND);
     return cart;
   }

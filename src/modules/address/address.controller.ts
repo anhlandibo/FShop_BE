@@ -1,15 +1,15 @@
 import { Body, Controller, Delete, Get, HttpStatus, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { AddressService } from './address.service';
-import { AuthGuard } from 'src/guards/auth.guard';
 import { QueryDto } from 'src/dto/query.dto';
 import { CreateAddressDto, UpdateAddressDto } from './dto';
 import { ApiBearerAuth, ApiCreatedResponse, ApiNotFoundResponse, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('address')
 export class AddressController {
   constructor(private readonly addressService: AddressService) {}
 
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   @Post()
   @ApiOperation({ summary: 'Create a new address for the authenticated user'})
@@ -34,7 +34,7 @@ export class AddressController {
     return this.addressService.delete(id);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard('jwt'))
   @Get()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all addresses for the authenticated user' })
@@ -43,7 +43,7 @@ export class AddressController {
     return this.addressService.getMyAddresses(id);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard('jwt'))
   @Patch(':id')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update address by ID' })
@@ -52,7 +52,7 @@ export class AddressController {
     return this.addressService.update(userId, id, updateAddressDto);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard('jwt'))
   @Get(':addressId')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get address by ID' })
