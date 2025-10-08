@@ -47,4 +47,39 @@ export class AuthController {
     return req['user'];
   }
 
+  @Get('google')
+  @UseGuards(AuthGuard('google'))
+  @ApiOperation({ summary: 'Login with Google' })
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async googleAuth() {
+    return;
+  }
+
+  @Get('google/callback')
+  @UseGuards(AuthGuard('google'))
+  @ApiOperation({ summary: 'Google OAuth2 callback' })
+  async googleAuthRedirect(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const tokens = await this.authService.loginWithGoogle(req['user']);
+
+    res.cookie('access_token', tokens.access_token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: false,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+    res.cookie('refresh_token', tokens.refresh_token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: false,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    return {
+      message: 'Login with Google successful',
+      ...tokens,
+    };
+  }
+
+
+
 }

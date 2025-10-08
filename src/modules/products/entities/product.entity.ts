@@ -4,6 +4,7 @@ import { Column, CreateDateColumn, Entity, ManyToOne, OneToMany, PrimaryGenerate
 import { ProductVariant } from "./product-variant.entity";
 import { ProductImage } from "./product-image.entity";
 import { Exclude } from "class-transformer";
+import { Wishlist } from "src/modules/wishlists/entities/wishlist.entity";
 @Entity('products')
 export class Product {
   @PrimaryGeneratedColumn()
@@ -38,4 +39,7 @@ export class Product {
 
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
+
+  @OneToMany(() => Wishlist, wishlist => wishlist.product)
+  wishlist: Wishlist[];
 }

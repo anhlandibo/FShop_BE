@@ -14,4 +14,12 @@ export class UpdateUserDto {
     @IsEnum(Role)// 👈 nếu không gửi thì sẽ mặc định là "user"
     @ApiProperty({enum: Role})
     role: Role;
+
+    @IsOptional()
+    @IsString()
+    avatar?: string;
+
+    @IsOptional()
+    @IsString()
+    publicId?: string;
 }

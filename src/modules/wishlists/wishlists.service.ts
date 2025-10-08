@@ -17,7 +17,7 @@ export class WishlistsService {
 
   async create(userId: number, createWishlistDto: CreateWishlistsDto) {
     return this.dataSource.manager.transaction(async (manager) => {
-      const variant = await manager.findOne(ProductVariant, {where: {id: createWishlistDto.variantId}});
+      const variant = await manager.findOne(ProductVariant, {where: {id: createWishlistDto.productId}});
       if (!variant) throw new HttpException('Variant not found', HttpStatus.NOT_FOUND);
 
       const user = await manager.findOne(User, {where: {id: userId}});
@@ -26,7 +26,7 @@ export class WishlistsService {
       const wishlist = await manager.findOne(Wishlist, {
         where: {
           user: {id: userId},
-          variant: {id: createWishlistDto.variantId}
+          product: {id: createWishlistDto.productId}
         }
       })
       if (wishlist) throw new HttpException('Wishlist already exists', HttpStatus.CONFLICT);
@@ -57,16 +57,16 @@ export class WishlistsService {
   }
 
   async toggle(userId: number, createWishlistDto: CreateWishlistsDto) {
-  const { variantId } = createWishlistDto;
+  const { productId } = createWishlistDto;
 
   return this.dataSource.manager.transaction(async (manager) => {
     // Check variant tồn tại
-    const variant = await manager.findOne(ProductVariant, {where: { id: variantId }});
+    const variant = await manager.findOne(ProductVariant, {where: { id: productId }});
     if (!variant) throw new HttpException('Variant not found', HttpStatus.NOT_FOUND);
     
     // Check wishlist item tồn tại chưa
     const existing = await manager.findOne(Wishlist, {
-      where: {user: { id: userId }, variant: { id: variantId }},
+      where: {user: { id: userId }, product: { id: productId }},
       relations: ['user', 'variant'],
     });
 
@@ -76,7 +76,7 @@ export class WishlistsService {
       return {
         message: 'Wishlist item removed',
         action: 'removed',
-        variantId,
+        productId,
       };
     } else {
       // Nếu chưa có thì thêm

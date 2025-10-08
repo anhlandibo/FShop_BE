@@ -9,22 +9,41 @@ import { PassportModule } from '@nestjs/passport';
 import { LocalStrategy } from 'src/strategies/local.strategy';
 import { JwtAccessStrategy } from '../../strategies/jwt-access.strategy';
 import { JwtRefreshStrategy } from 'src/strategies/jwt-refresh.strategy';
+import { getGoogleConfig } from 'src/configs/google-oauth.config';
+import { GoogleStrategy } from 'src/strategies/google.strategy';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 
 @Module({
   imports: [
     UsersModule,
-    PassportModule.register({defaultStrategy: 'jwt', session: false}),
+    CloudinaryModule,
+    PassportModule.register({ defaultStrategy: 'jwt', session: false }),
     JwtModule.registerAsync({
       global: true,
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET'),
-        signOptions: { expiresIn: configService.get<string>('JWT_ACCESS_EXPIRES_IN') || '60s' },
+        signOptions: {
+          expiresIn:
+            configService.get<string>('JWT_ACCESS_EXPIRES_IN') || '60s',
+        },
       }),
-    })
+    }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, LocalStrategy, JwtAccessStrategy, JwtRefreshStrategy],
-  exports: [PassportModule]
+  providers: [
+    AuthService,
+    LocalStrategy,
+    JwtAccessStrategy,
+    JwtRefreshStrategy,
+    GoogleStrategy,
+    {
+      provide: 'GOOGLE_CONFIG',
+      inject: [ConfigService],
+      useFactory: getGoogleConfig,
+    },
+  ],
+  exports: [PassportModule],
 })
-export class AuthModule { }
+export class AuthModule {}
