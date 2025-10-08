@@ -5,10 +5,15 @@ import { AuthController } from './auth.controller';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersModule } from 'src/modules/users/users.module';
+import { PassportModule } from '@nestjs/passport';
+import { LocalStrategy } from 'src/strategies/local.strategy';
+import { JwtAccessStrategy } from '../../strategies/jwt-access.strategy';
+import { JwtRefreshStrategy } from 'src/strategies/jwt-refresh.strategy';
 
 @Module({
   imports: [
     UsersModule,
+    PassportModule.register({defaultStrategy: 'jwt', session: false}),
     JwtModule.registerAsync({
       global: true,
       inject: [ConfigService],
@@ -19,6 +24,7 @@ import { UsersModule } from 'src/modules/users/users.module';
     })
   ],
   controllers: [AuthController],
-  providers: [AuthService],
+  providers: [AuthService, LocalStrategy, JwtAccessStrategy, JwtRefreshStrategy],
+  exports: [PassportModule]
 })
 export class AuthModule { }

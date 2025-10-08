@@ -1,3 +1,4 @@
+import { ApiProperty } from "@nestjs/swagger";
 import { IsEnum } from "class-validator";
 import { AddressType } from "src/constants/address-type.enum";
 import { BooleanOptional, PhoneNumberRequired, StringRequired } from "src/decorators/dto.decorator";
@@ -22,6 +23,7 @@ export class CreateAddressDto {
   commune: string;
 
   @IsEnum(AddressType)
+  @ApiProperty({ enum: AddressType, default: AddressType.HOME })
   type: AddressType;
 
   @BooleanOptional()

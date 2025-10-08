@@ -31,6 +31,7 @@ import { OrdersModule } from './modules/orders/orders.module';
 import { CouponsModule } from './modules/coupons/coupons.module';
 import { DepartmentsModule } from './modules/departments/departments.module';
 import { AttributesModule } from './modules/attributes/attributes.module';
+import { WishlistsModule } from './modules/wishlists/wishlists.module';
 import path from 'path';
 
 @Module({
@@ -60,6 +61,7 @@ import path from 'path';
     CouponsModule,
     DepartmentsModule,
     AttributesModule,
+    WishlistsModule,
   ],
   controllers: [AppController],
   providers: [

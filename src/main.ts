@@ -16,9 +16,10 @@ async function bootstrap() {
   app.setGlobalPrefix('api/v1');
   // swagger
   const config = new DocumentBuilder()
-    .setTitle('Fashion Shop API')
-    .setDescription('Build APIs cho fashion shop website')
+    .setTitle('E-commerce Fashion API')
+    .setDescription('API documentation for the e-commerce fashion website')
     .setVersion('1.0')
+    .addBearerAuth()
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/v1/docs', app, documentFactory);

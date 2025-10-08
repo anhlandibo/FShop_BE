@@ -26,7 +26,7 @@ export class OrdersService {
       const address = await manager.findOne(Address, { where: { user: { id: userId }, id: addressId }});
       if (!address) throw new HttpException('Address not found', HttpStatus.NOT_FOUND);
       console.log(address)
-      const cart = await manager.findOne(Cart, { where: { user: { id: userId }}, relations: ['items', 'items.variant', 'user']});
+      const cart = await manager.findOne(Cart, { where: { user: { id: userId }}, relations: ['items', 'items.variant', 'user', 'items.variant.product']});
 
       if (!cart || cart.items.length == 0) throw new HttpException('Cart is empty', HttpStatus.NOT_FOUND);
 
@@ -61,7 +61,7 @@ export class OrdersService {
           order,
           variant: cartItem.variant,
           quantity: item.quantity,
-          // price: cartItem.variant.price
+           price: cartItem.variant.product.price
         })
         await manager.save(orderItem);
         totalAmount += item.quantity * orderItem.price;

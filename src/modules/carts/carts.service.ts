@@ -19,8 +19,8 @@ export class CartsService {
   async create(createCartDto: CreateCartDto) {
     const { userId } = createCartDto;
     const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (!user) throw new HttpException('User not found', 404);
-    if (user.cart) throw new HttpException('User already have cart', 400);
+    if (!user) throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    if (user.cart) throw new HttpException('User already have cart', HttpStatus.CONFLICT);
     const cart = this.cartRepository.create({ user });
     return await this.cartRepository.save(cart);
   }
@@ -71,7 +71,7 @@ export class CartsService {
   }
 
   async getCart(cartId: number){
-    const cart = await this.cartRepository.findOne({where: {id: cartId}, relations: ['items', 'items.variant.id']});
+    const cart = await this.cartRepository.findOne({where: {id: cartId}, relations: ['items', 'items.variant']});
     if (!cart) throw new HttpException('Cart not found', HttpStatus.NOT_FOUND);
     return cart;
   }
