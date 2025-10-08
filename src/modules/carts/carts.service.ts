@@ -14,7 +14,7 @@ export class CartsService {
     @InjectRepository(CartItem) private cartItemRepository: Repository<CartItem>,
     @InjectRepository(User) private userRepository: Repository<User>,
     @InjectRepository(ProductVariant) private productVariantRepository: Repository<ProductVariant>,
-  ) {}
+  ) { }
 
   async create(createCartDto: CreateCartDto) {
     const { userId } = createCartDto;
@@ -25,8 +25,8 @@ export class CartsService {
     return await this.cartRepository.save(cart);
   }
 
-  async addToCart(cartId: number,cartItemDto: CartItemDto) {
-    const {variantId, quantity} = cartItemDto;
+  async addToCart(cartId: number, cartItemDto: CartItemDto) {
+    const { variantId, quantity } = cartItemDto;
     const cart = await this.cartRepository.findOne({ where: { id: cartId }, relations: ['items', 'items.variant'] });
     if (!cart) throw new HttpException('Cart not found', HttpStatus.NOT_FOUND);
 
@@ -51,7 +51,7 @@ export class CartsService {
   }
 
   async removeFromtCart(cartId: number, cartItemDto: CartItemDto) {
-    const {variantId, quantity} = cartItemDto;
+    const { variantId, quantity } = cartItemDto;
     const cart = await this.cartRepository.findOne({ where: { id: cartId }, relations: ['items', 'items.variant'] });
 
     if (!cart) throw new HttpException('Cart not found', HttpStatus.NOT_FOUND);
@@ -63,15 +63,15 @@ export class CartsService {
       existingCartItem.quantity -= quantity;
       await this.cartItemRepository.save(existingCartItem);
     }
-    
+
     return this.cartRepository.findOne({
       where: { id: cart.id },
       relations: ['items', 'items.variant'],
     });
   }
 
-  async getCart(cartId: number){
-    const cart = await this.cartRepository.findOne({where: {id: cartId}, relations: ['items', 'items.variant']});
+  async getCart(cartId: number) {
+    const cart = await this.cartRepository.findOne({ where: { id: cartId }, relations: ['items', 'items.variant', 'items.variant.product', 'items.variant.variantAttributeValues', 'items.variant.variantAttributeValues.attributeCategory', 'items.variant.variantAttributeValues.attributeCategory.attribute'] });
     if (!cart) throw new HttpException('Cart not found', HttpStatus.NOT_FOUND);
     return cart;
   }

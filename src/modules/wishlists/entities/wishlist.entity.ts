@@ -9,15 +9,15 @@ export class Wishlist {
   id: number;
 
 
-  @ManyToOne(() => User, (user) => user.wishlist, {onDelete: 'CASCADE'})
+  @ManyToOne(() => User, (user) => user.wishlist, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
   @Exclude()
   user: User
 
-  @ManyToOne(() => ProductVariant, (variant) => variant.wishlist, {onDelete: 'CASCADE'})
+  @ManyToOne(() => ProductVariant, (variant) => variant.wishlist, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'variantId' })
   @Exclude()
-  variant: User
+  variant: ProductVariant
 
   @CreateDateColumn()
   createdAt: Date;
