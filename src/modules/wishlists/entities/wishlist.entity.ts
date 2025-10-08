@@ -1,5 +1,5 @@
 import { Exclude } from "class-transformer";
-import { ProductVariant } from "src/modules/products/entities";
+import { Product, ProductVariant } from "src/modules/products/entities";
 import { User } from "src/modules/users/entities/user.entity";
 import { CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 
@@ -14,10 +14,10 @@ export class Wishlist {
   @Exclude()
   user: User
 
-  @ManyToOne(() => ProductVariant, (variant) => variant.wishlist, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'variantId' })
+  @ManyToOne(() => Product, (product) => product.wishlist, {onDelete: 'CASCADE'})
+  @JoinColumn({ name: 'productId' })
   @Exclude()
-  variant: ProductVariant
+  product: Product
 
   @CreateDateColumn()
   createdAt: Date;

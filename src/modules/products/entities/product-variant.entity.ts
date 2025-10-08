@@ -52,7 +52,4 @@ export class ProductVariant {
 
   @OneToMany(() => VariantAttributeValue, variantAttributeValue => variantAttributeValue.productVariant)
   variantAttributeValues: VariantAttributeValue[];
-
-  @OneToMany(() => Wishlist, wishlist => wishlist.variant)
-  wishlist: Wishlist[];
 }
