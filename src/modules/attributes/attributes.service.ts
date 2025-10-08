@@ -13,11 +13,11 @@ export class AttributesService {
   constructor(
     @InjectRepository(Attribute) private attributeRepository: Repository<Attribute>,
     private readonly dataSource: DataSource,
-  ) {}
+  ) { }
 
   async create(createAttributeDto: CreateAttributeDto) {
     return await this.dataSource.transaction(async (manager) => {
-      const existingAttribute = await manager.findOne(Attribute, {where: { name: createAttributeDto.name }});
+      const existingAttribute = await manager.findOne(Attribute, { where: { name: createAttributeDto.name } });
       if (existingAttribute) throw new HttpException('Attribute name already exist', HttpStatus.CONFLICT);
       const attribute = manager.create(Attribute, {
         ...createAttributeDto,
@@ -108,7 +108,11 @@ export class AttributesService {
       const attributeCategories = await manager.find(AttributeCategory, {
         where: {
           category: { id: categoryId },
-        }
+        },
+        relations: [
+          'attribute',
+          'category'
+        ]
       });
       return attributeCategories;
     });

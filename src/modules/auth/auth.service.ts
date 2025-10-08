@@ -21,7 +21,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly cloudinaryService: CloudinaryService,
     @InjectRedis() private readonly redis: Redis,
-  ) {}
+  ) { }
   async login(loginAuthDto: LoginAuthDto) {
     // check credential
     const { email, password } = loginAuthDto;
@@ -117,6 +117,14 @@ export class AuthService {
     if (!user) return null;
     const isMatch = await comparePassword(password, user.password);
     if (!isMatch) return null;
+    return user;
+  }
+
+  async getMyProfile(email: string) {
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
     return user;
   }
 }

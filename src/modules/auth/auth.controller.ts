@@ -14,7 +14,7 @@ export class AuthController {
 
   @Post('login')
   @ApiOperation({ summary: 'Login user' })
-  @ApiUnauthorizedResponse({description: 'Invalid email or password'})
+  @ApiUnauthorizedResponse({ description: 'Invalid email or password' })
   async login(@Res({ passthrough: true }) response: Response, @Body() loginAuthDto: LoginAuthDto) {
     const result = await this.authService.login(loginAuthDto);
     response.cookie('access_token', result.access_token, {
@@ -34,17 +34,18 @@ export class AuthController {
 
   @Post('refresh')
   @UseGuards(AuthGuard('jwt-refresh'))
-  @ApiOperation({summary: 'Refresh access token'})
-  @ApiUnauthorizedResponse({description: 'Error while refresh token'})
+  @ApiOperation({ summary: 'Refresh access token' })
+  @ApiUnauthorizedResponse({ description: 'Error while refresh token' })
   async refresh(@Body() refreshTokenDto: RefreshTokenDto) {
     return this.authService.refresh(refreshTokenDto.refreshToken);
   }
 
   @UseGuards(AuthGuard('jwt'))
   @Get('me')
-  @ApiOperation({summary: 'Get user information'})
-  me(@Req() req: Request){
-    return req['user'];
+  @ApiOperation({ summary: 'Get user information' })
+  me(@Req() req: Request) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
+    return this.authService.getMyProfile(req['user'].email);
   }
 
   @Get('google')

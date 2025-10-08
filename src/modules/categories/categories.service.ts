@@ -20,17 +20,17 @@ export class CategoriesService {
     @InjectRedis() private readonly redis: Redis,
     private dataSource: DataSource,
     private readonly cloudinaryService: CloudinaryService,
-  ) {}
+  ) { }
 
   async create(createCategoryDto: CreateCategoryDto, file: Express.Multer.File) {
     return await this.dataSource.transaction(async (manager) => {
       // check trùng tên
-      if (await manager.findOne(Category, {where: { name: createCategoryDto.name }}))
+      if (await manager.findOne(Category, { where: { name: createCategoryDto.name } }))
         throw new HttpException('Category already exist', HttpStatus.CONFLICT);
       // check department
-      const department = await manager.findOne(Department, { where: { id: createCategoryDto.departmentId }});
+      const department = await manager.findOne(Department, { where: { id: createCategoryDto.departmentId } });
       if (!department) throw new HttpException('Department not found', HttpStatus.NOT_FOUND);
-        
+
       // Upload ảnh
       let imageUrl: string | undefined;
       let publicId: string | undefined;
@@ -79,12 +79,12 @@ export class CategoriesService {
   // logic còn vấn đề
   async update(id: number, updateCategoryDto: UpdateCategoryDto, file?: Express.Multer.File) {
     return await this.dataSource.transaction(async (manager) => {
-      const category = await manager.findOne(Category, { where: { id }, relations: ['attributeCategories', 'department']});
+      const category = await manager.findOne(Category, { where: { id }, relations: ['attributeCategories', 'department'] });
       if (!category)
         throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
       // Update department
       if (updateCategoryDto.departmentId) {
-        const department = await manager.findOne(Department, {where: { id: updateCategoryDto.departmentId }});
+        const department = await manager.findOne(Department, { where: { id: updateCategoryDto.departmentId } });
         if (!department) throw new HttpException('Department not found', HttpStatus.NOT_FOUND);
         category.department = department;
       }
@@ -163,15 +163,21 @@ export class CategoriesService {
         data: Category[];
       };
     }
-    */ 
+    */
     const [data, total] = await this.categoryRepository.findAndCount({
       where: search
         ? [{ name: Like(`%${search}%`) }, { description: Like(`%${search}%`) }]
         : {},
       ...(page && limit && { take: limit, skip: (page - 1) * limit }),
       order: { [sortBy]: sortOrder },
-      relations: ['attributeCategories'],
+      relations: {
+        attributeCategories: {
+          attribute: true,   // 👈 load Attribute
+          category: true     // 👈 load Category (nếu cần, nhưng Category chính là bảng này)
+        },
+      },
     });
+
     const response = {
       pagination: {
         total,
@@ -210,7 +216,7 @@ export class CategoriesService {
           HttpStatus.NOT_FOUND,
         );
       }
-      await manager.delete(AttributeCategory, { category: { id: In(ids) }});
+      await manager.delete(AttributeCategory, { category: { id: In(ids) } });
       await manager.update(Category, { id: In(ids) }, { isActive: false });
 
       return { deletedIds: ids };
