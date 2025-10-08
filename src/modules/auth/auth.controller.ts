@@ -35,8 +35,9 @@ export class AuthController {
 
   @UseGuards(AuthGuard)
   @Get('me')
-  me(@Req() req: Request){
-    return req['user'];
+  me(@Req() req: Request) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
+    return this.authService.getMyProfile(req['user'].email);
   }
 
 }

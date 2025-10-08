@@ -169,10 +169,26 @@ export class ProductsService {
   }
 
   async getProductById(id: number) {
-    const product = await this.productRepository.findOne({ where: { id }, relations: ['variants', 'images', 'brand', 'category'] });
-    if (!product) throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+    const product = await this.productRepository.findOne({
+      where: { id },
+      relations: [
+        'variants',
+        'variants.variantAttributeValues',
+        'variants.variantAttributeValues.attributeCategory',
+        'variants.variantAttributeValues.attributeCategory.attribute', // 👈 nếu cần lấy Attribute gốc
+        'images',
+        'brand',
+        'category',
+      ],
+    });
+
+    if (!product) {
+      throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+    }
     return product;
   }
+
+
 
   /* async delete(id: number) {
     const product = await this.productRepository.findOne({where: { id }});

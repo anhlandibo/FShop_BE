@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { QueryDto } from 'src/dto/query.dto';
@@ -7,7 +8,7 @@ import { AttributesService } from '../attributes/attributes.service';
 
 @Controller('categories')
 export class CategoriesController {
-  constructor(private readonly categoriesService: CategoriesService, private readonly attributesService: AttributesService){ }
+  constructor(private readonly categoriesService: CategoriesService, private readonly attributesService: AttributesService) { }
 
   @Post()
   @UseInterceptors(FileInterceptor('image'))

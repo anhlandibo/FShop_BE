@@ -17,7 +17,7 @@ export class AuthService {
     private jwtService: JwtService,
     private readonly configService: ConfigService,
     @InjectRedis() private readonly redis: Redis,
-  ) {}
+  ) { }
   async login(loginAuthDto: LoginAuthDto) {
     // check credential
     const { email, password } = loginAuthDto;
@@ -37,7 +37,7 @@ export class AuthService {
         secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
       });
       return this.generateTokens(payload.sub, payload.username, payload.role, payload.cartId);
-    } catch(err) {
+    } catch (err) {
       console.log(err)
       throw new HttpException('Invalid refresh token', HttpStatus.UNAUTHORIZED);
     }
@@ -59,5 +59,13 @@ export class AuthService {
     });
 
     return { access_token, refresh_token };
+  }
+
+  async getMyProfile(email: string) {
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+    return user;
   }
 }
