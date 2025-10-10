@@ -10,18 +10,6 @@ import { QueryDto } from 'src/dto/query.dto';
 export class WishlistsController {
   constructor(private readonly wishlistsService: WishlistsService) {}
 
-  @UseGuards(AuthGuard('jwt'))
-  @ApiBearerAuth()
-  @Post()
-  @ApiOperation({ summary: 'Create a new wishlist for the authenticated user'})
-  @ApiCreatedResponse({description: 'Wishlist created successfully'})
-  @ApiNotFoundResponse({description: 'User/variant not found'})
-  @ApiConflictResponse({description: 'Wishlist already exists'})
-  async create(@Req() req: Request, @Body() CreateWishlistsDto: CreateWishlistsDto) {
-    const {id} = req['user'];
-    return this.wishlistsService.create(id, CreateWishlistsDto);
-  }
-
   @Get()
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
@@ -29,16 +17,6 @@ export class WishlistsController {
   async getAll(@Req() req: Request) {
     const {id} = req['user'];
     return this.wishlistsService.getMyWishlists(id);
-  }
-
-  @Delete(':wishlistId')
-  @UseGuards(AuthGuard('jwt'))
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Delete a wishlist' })
-  @ApiNotFoundResponse({description: 'Wishlist not found'})
-  async remove(@Req() req: Request, @Param('wishlistId') wishlistId: number) {
-    const {id} = req['user'];
-    return this.wishlistsService.remove(id, wishlistId);
   }
 
   @UseGuards(AuthGuard('jwt'))
