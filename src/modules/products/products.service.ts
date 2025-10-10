@@ -16,6 +16,7 @@ import { Category } from '../categories/entities/category.entity';
 import { plainToInstance } from 'class-transformer';
 import { VariantAttributeValue } from './entities/variant-attribute-value.entity';
 import { AttributeCategory } from '../attributes/entities/attribute-category.entity';
+import { ProductQueryDto } from 'src/dto/productQuery.dto';
 
 @Injectable()
 export class ProductsService {
@@ -130,8 +131,8 @@ export class ProductsService {
     });
   }
 
-  async findAll(query: QueryDto) {
-    const { page, limit, search, sortBy = 'id', sortOrder = 'DESC' } = query;
+  async findAll(query: ProductQueryDto) {
+    const { page, limit, search, sortBy = 'id', sortOrder = 'DESC', categoryId, attributeCategoryIds } = query;
     /* Redis
     const redisKey = hashKey('products', query);
     const cachedData: string | null = await this.redis.get(redisKey);
@@ -149,8 +150,9 @@ export class ProductsService {
     */
     const [data, total] = await this.productRepository.findAndCount({
       where: search
-        ? [{ name: Like(`%${search}%`) }, { description: Like(`%${search}%`) }]
+        ? [{ name: Like(`%${search}%`) }, { description: Like(`%${search}%`)}, {category: {id: categoryId, attributeCategories: {id: In(attributeCategoryIds)}}}]
         : {},
+        
       ...(page && limit && { take: limit, skip: (page - 1) * limit }),
       order: { [sortBy]: sortOrder },
       relations: ['variants', 'images', 'brand', 'category'],
@@ -175,7 +177,7 @@ export class ProductsService {
         'variants',
         'variants.variantAttributeValues',
         'variants.variantAttributeValues.attributeCategory',
-        'variants.variantAttributeValues.attributeCategory.attribute', // 👈 nếu cần lấy Attribute gốc
+        'variants.variantAttributeValues.attributeCategory.attribute',
         'images',
         'brand',
         'category',
@@ -187,8 +189,6 @@ export class ProductsService {
     }
     return product;
   }
-
-
 
   /* async delete(id: number) {
     const product = await this.productRepository.findOne({where: { id }});
@@ -210,3 +210,7 @@ export class ProductsService {
     };
   } */
 }
+function In(attributeCategoryIds: number[] | undefined): number | import("typeorm").FindOperator<number> | undefined {
+  throw new Error('Function not implemented.');
+}
+
