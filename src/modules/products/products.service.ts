@@ -133,41 +133,41 @@ export class ProductsService {
 
   async findAll(query: ProductQueryDto) {
     const { page, limit, search, sortBy = 'id', sortOrder = 'DESC', categoryId, attributeCategoryIds } = query;
-    /* Redis
-    const redisKey = hashKey('products', query);
-    const cachedData: string | null = await this.redis.get(redisKey);
-    if (cachedData) {
-      console.log('data lay tu redis');
-      return JSON.parse(cachedData) as {
-        pagination: {
-          total: number;
-          page: number | undefined;
-          limit: number | undefined;
-        };
-        data: Product[];
+    const queryBuilder = this.productRepository
+        .createQueryBuilder('product')
+        .leftJoinAndSelect('product.variants', 'variant')
+        .leftJoinAndSelect('product.images', 'image')
+        .leftJoinAndSelect('product.brand', 'brand')
+        .leftJoinAndSelect('product.category', 'category')
+        .leftJoin('category.attributeCategories', 'attributeCategory');
+        if (search) {
+        queryBuilder.andWhere('(product.name LIKE :search OR product.description LIKE :search)', {
+          search: `%${search}%`,
+        });
+      }
+
+      if (categoryId) {
+        queryBuilder.andWhere('category.id = :categoryId', { categoryId });
+      }
+
+      if (attributeCategoryIds?.length) {
+        queryBuilder.andWhere('attributeCategory.id IN (:...attributeCategoryIds)', {
+          attributeCategoryIds,
+        });
+      }
+
+      queryBuilder.orderBy(`product.${sortBy}`, sortOrder);
+
+      if (page && limit) {
+        queryBuilder.skip((page - 1) * limit).take(limit);
+      }
+
+      const [data, total] = await queryBuilder.getManyAndCount();
+
+      return {
+        pagination: { total, page, limit },
+        data,
       };
-    }
-    */
-    const [data, total] = await this.productRepository.findAndCount({
-      where: search
-        ? [{ name: Like(`%${search}%`) }, { description: Like(`%${search}%`)}, {category: {id: categoryId, attributeCategories: {id: In(attributeCategoryIds)}}}]
-        : {},
-        
-      ...(page && limit && { take: limit, skip: (page - 1) * limit }),
-      order: { [sortBy]: sortOrder },
-      relations: ['variants', 'images', 'brand', 'category'],
-    });
-    const response = {
-      pagination: {
-        total,
-        page,
-        limit,
-      },
-      data,
-    };
-    console.log('data lay tu DB');
-    // await this.redis.set(redisKey, JSON.stringify(response), 'EX', 60);
-    return response;
   }
 
   async getProductById(id: number) {
