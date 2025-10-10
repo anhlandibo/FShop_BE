@@ -6,6 +6,7 @@ import { FileFieldsInterceptor, FilesInterceptor } from '@nestjs/platform-expres
 import { CreateProductDto } from './dto/create-product.dto';
 import { QueryDto } from 'src/dto/query.dto';
 import { plainToClass } from 'class-transformer';
+import { ProductQueryDto } from 'src/dto/productQuery.dto';
 
 @Controller('products')
 export class ProductsController {
@@ -33,7 +34,7 @@ export class ProductsController {
   }
 
   @Get()
-  findAll(@Query() query: QueryDto) {
+  findAll(@Query() query: ProductQueryDto) {
     return this.productsService.findAll(query);
   }
 
@@ -41,6 +42,7 @@ export class ProductsController {
   getProductById(@Param('id') id: number) {
     return this.productsService.getProductById(id);
   }
+
 
   /* @Delete(':id')
   remove(@Param('id') id: number) {
