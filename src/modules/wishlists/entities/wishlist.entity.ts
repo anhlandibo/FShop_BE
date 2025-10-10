@@ -9,7 +9,7 @@ export class Wishlist {
   id: number;
 
 
-  @ManyToOne(() => User, (user) => user.wishlist, {onDelete: 'CASCADE'})
+  @ManyToOne(() => User, (user) => user.wishlist, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
   @Exclude()
   user: User

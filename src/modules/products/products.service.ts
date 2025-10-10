@@ -28,24 +28,24 @@ export class ProductsService {
     @InjectRedis() private readonly redis: Redis,
     private dataSource: DataSource,
     private readonly cloudinaryService: CloudinaryService,
-  ) {}
+  ) { }
 
   async create(
-    createProductDto: CreateProductDto, 
-    images: Array<Express.Multer.File>, 
+    createProductDto: CreateProductDto,
+    images: Array<Express.Multer.File>,
     variantImages: Array<Express.Multer.File>
   ) {
     return await this.dataSource.transaction(async (manager) => {
       // Check trùng tên
-      if (await manager.findOne(Product, {where: { name: createProductDto.name }}))
-        throw new HttpException('Product name already exist',HttpStatus.CONFLICT);
+      if (await manager.findOne(Product, { where: { name: createProductDto.name } }))
+        throw new HttpException('Product name already exist', HttpStatus.CONFLICT);
 
       // Check brand
-      const existingBrand = await manager.findOne(Brand, {where: { id: createProductDto.brandId }});
+      const existingBrand = await manager.findOne(Brand, { where: { id: createProductDto.brandId } });
       if (!existingBrand) throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
 
       // Check category
-      const existingCategory = await manager.findOne(Category, {where: { id: createProductDto.categoryId}});
+      const existingCategory = await manager.findOne(Category, { where: { id: createProductDto.categoryId } });
       if (!existingCategory) throw new HttpException('Category not found', HttpStatus.NOT_FOUND)
 
       // Tạo product
@@ -86,9 +86,10 @@ export class ProductsService {
           if (variantDto.attributes && variantDto.attributes.length > 0) {
             for (const attr of variantDto.attributes) {
               const attributeCategory = await manager.findOne(AttributeCategory, {
-              where: { id: attr.attributeCategoryId }});
+                where: { id: attr.attributeCategoryId }
+              });
 
-              if (!attributeCategory) 
+              if (!attributeCategory)
                 throw new HttpException('Attribute category not found', HttpStatus.NOT_FOUND);
 
               const variantAttributeValue = manager.create(VariantAttributeValue, {
@@ -102,9 +103,9 @@ export class ProductsService {
           }
           variants.push(savedVariant);
         }
-      } 
+      }
       else {
-        const defaultVariant = manager.create(ProductVariant, {product: savedProduct});
+        const defaultVariant = manager.create(ProductVariant, { product: savedProduct });
         variants.push(await manager.save(defaultVariant));
       }
       // await manager.save(variants);
@@ -152,7 +153,7 @@ export class ProductsService {
         : {},
       ...(page && limit && { take: limit, skip: (page - 1) * limit }),
       order: { [sortBy]: sortOrder },
-      relations: ['variants', 'images'],
+      relations: ['variants', 'images', 'brand', 'category'],
     });
     const response = {
       pagination: {
@@ -168,10 +169,26 @@ export class ProductsService {
   }
 
   async getProductById(id: number) {
-    const product = await this.productRepository.findOne({ where: { id }, relations: ['variants', 'images'] });
-    if (!product) throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+    const product = await this.productRepository.findOne({
+      where: { id },
+      relations: [
+        'variants',
+        'variants.variantAttributeValues',
+        'variants.variantAttributeValues.attributeCategory',
+        'variants.variantAttributeValues.attributeCategory.attribute', // 👈 nếu cần lấy Attribute gốc
+        'images',
+        'brand',
+        'category',
+      ],
+    });
+
+    if (!product) {
+      throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+    }
     return product;
   }
+
+
 
   /* async delete(id: number) {
     const product = await this.productRepository.findOne({where: { id }});

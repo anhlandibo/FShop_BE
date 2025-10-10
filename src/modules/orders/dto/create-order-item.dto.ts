@@ -1,7 +1,7 @@
 import { NumberRequired } from "src/decorators/dto.decorator";
 
 export class CreateOrderItemDto {
-  @NumberRequired('Varint ID')
+  @NumberRequired('Variant ID')
   variantId: number
 
   @NumberRequired('quantity')
