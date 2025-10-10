@@ -33,7 +33,7 @@ export class Order {
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   totalAmount: number;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'text', nullable: true })
   note: string;
 
   @ManyToOne(() => User, (user) => user.orders)
