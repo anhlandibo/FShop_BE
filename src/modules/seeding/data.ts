@@ -4,6 +4,58 @@ import { Category } from "src/modules/categories/entities/category.entity";
 import { User } from "../users/entities/user.entity";
 import { ProductImage } from "../products/entities/product-image.entity";
 import { Product } from "../products/entities/product.entity";
+import { Department } from "../departments/entities/department.entity";
+
+export const departmentSeed: Partial<Department>[] = [
+  {
+    name: "Men",
+    imageUrl: "https://w7.pngwing.com/pngs/836/129/png-transparent-graphy-arm-handsome-carriage-tshirt-blue-photography-thumbnail.png",
+    publicId: "department_men",
+    description:
+      "Men’s modern fashion collection — from shirts, jeans, and jackets to sporty sneakers and casual wear.",
+    isActive: true,
+  },
+  {
+    name: "Women",
+    imageUrl: "https://images.unsplash.com/photo-1521336575822-6da63fb45455?w=800&auto=format&q=80",
+    publicId: "department_women",
+    description:
+      "Elegant and trendy women’s fashion — dresses, blouses, handbags, high heels, and chic accessories.",
+    isActive: true,
+  },
+  {
+    name: "Kids",
+    imageUrl: "https://images.unsplash.com/photo-1603252109303-2751441dd157?w=800&auto=format&q=80",
+    publicId: "department_kids",
+    description:
+      "Adorable and comfortable kids’ clothing — playful outfits, cozy shoes, and soft materials for every season.",
+    isActive: true,
+  },
+  {
+    name: "Accessories",
+    imageUrl: "https://images.unsplash.com/photo-1600180758890-6b94519a8ba6?q=80&w=800&auto=format",
+    publicId: "department_accessories",
+    description:
+      "Complete your look with stylish accessories — watches, wallets, belts, hats, and sunglasses.",
+    isActive: true,
+  },
+  {
+    name: "Shoes",
+    imageUrl: "https://images.unsplash.com/photo-1596464716127-f2a82984de30?w=800&auto=format&q=80",
+    publicId: "department_shoes",
+    description:
+      "Discover a wide range of shoes — sneakers, dress shoes, heels, sandals, and trendy footwear for all occasions.",
+    isActive: true,
+  },
+  {
+    name: "Bags",
+    imageUrl: "https://images.unsplash.com/photo-1572373675588-1c06a526f39d?w=800&auto=format&q=80",
+    publicId: "department_bags",
+    description:
+      "Fashionable bags for every lifestyle — backpacks, totes, crossbody bags, and premium leather wallets.",
+    isActive: true,
+  },
+];
 
 export const brandSeed: Partial<Brand>[] = [
   {
