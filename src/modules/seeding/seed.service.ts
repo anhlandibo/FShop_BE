@@ -13,10 +13,6 @@ import { ProductImage } from '../products/entities/product-image.entity';
 @Injectable()
 export class SeedService {
   constructor(
-    @InjectRepository(Category)
-    private categoryRepository: Repository<Category>,
-    @InjectRepository(Brand)
-    private brandRepository: Repository<Brand>,
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 

@@ -132,7 +132,7 @@ export class ProductsService {
   }
 
   async findAll(query: ProductQueryDto) {
-    const { page, limit, search, sortBy = 'id', sortOrder = 'DESC', categoryId, attributeCategoryIds } = query;
+    const { page, limit, search, sortBy = 'id', sortOrder = 'DESC', categoryId, attributeCategoryIds, minPrice, maxPrice } = query;
     const queryBuilder = this.productRepository
         .createQueryBuilder('product')
         .leftJoinAndSelect('product.variants', 'variant')
@@ -146,15 +146,14 @@ export class ProductsService {
         });
       }
 
-      if (categoryId) {
-        queryBuilder.andWhere('category.id = :categoryId', { categoryId });
-      }
+      if (categoryId) queryBuilder.andWhere('category.id = :categoryId', { categoryId });
+      
 
-      if (attributeCategoryIds?.length) {
-        queryBuilder.andWhere('attributeCategory.id IN (:...attributeCategoryIds)', {
-          attributeCategoryIds,
-        });
-      }
+      if (attributeCategoryIds?.length)
+        queryBuilder.andWhere('attributeCategory.id IN (:...attributeCategoryIds)', {attributeCategoryIds});
+
+      if (minPrice) queryBuilder.andWhere('product.price >= :minPrice', { minPrice });
+      if (maxPrice) queryBuilder.andWhere('product.price <= :maxPrice', { maxPrice });
 
       queryBuilder.orderBy(`product.${sortBy}`, sortOrder);
 

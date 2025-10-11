@@ -8,7 +8,7 @@ export class ProductQueryDto extends QueryDto {
     @NumberOptional()
     categoryId?: number;
 
-     @IsOptional()
+    @IsOptional()
     @IsArray()
     @ArrayNotEmpty()
     @Transform(({ value }) => {
@@ -19,4 +19,10 @@ export class ProductQueryDto extends QueryDto {
     })
     @IsInt({ each: true })
     attributeCategoryIds?: number[];
+
+    @NumberOptional()
+    minPrice?: number
+
+    @NumberOptional()
+    maxPrice?: number;
 }
