@@ -58,27 +58,27 @@ export class UsersService {
     });
   }
 
-  async update(id: number, updateUserDto: UpdateUserDto, file?: Express.Multer.File) {
-    if (updateUserDto.email) {
-      const existingEmail = await this.usersRepository.findOne({where: { email: updateUserDto.email }});
-      if (existingEmail && existingEmail.id !== id) 
-        throw new HttpException('Email exists', HttpStatus.CONFLICT);
-    }
-    const existingUser = await this.usersRepository.findOne({where: { id }});
-    if (!existingUser) throw new HttpException('Not found user', HttpStatus.NOT_FOUND);
-    Object.assign(existingUser, updateUserDto); // merge
-    if (file) {
-      if (existingUser.publicId) {
-        await this.cloudinaryService
-          .deleteFile(existingUser.publicId)
-          .catch(() => null);
+    async update(id: number, updateUserDto: UpdateUserDto, file?: Express.Multer.File) {
+      if (updateUserDto.email) {
+        const existingEmail = await this.usersRepository.findOne({where: { email: updateUserDto.email }});
+        if (existingEmail && existingEmail.id !== id) 
+          throw new HttpException('Email exists', HttpStatus.CONFLICT);
       }
-      const uploaded = await this.cloudinaryService.uploadFile(file);
-      existingUser.avatar = uploaded?.secure_url;
-      existingUser.publicId = uploaded?.public_id;
+      const existingUser = await this.usersRepository.findOne({where: { id }});
+      if (!existingUser) throw new HttpException('Not found user', HttpStatus.NOT_FOUND);
+      Object.assign(existingUser, updateUserDto); // merge
+      if (file) {
+        if (existingUser.publicId) {
+          await this.cloudinaryService
+            .deleteFile(existingUser.publicId)
+            .catch(() => null);
+        }
+        const uploaded = await this.cloudinaryService.uploadFile(file);
+        existingUser.avatar = uploaded?.secure_url;
+        existingUser.publicId = uploaded?.public_id;
+      }
+      return this.usersRepository.update(id, existingUser);
     }
-    return this.usersRepository.update(id, existingUser);
-  }
 
   async findByEmail(email: string) {
     const user = await this.usersRepository.findOne({
