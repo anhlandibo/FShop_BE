@@ -13,10 +13,13 @@ import { getGoogleConfig } from 'src/configs/google-oauth.config';
 import { GoogleStrategy } from 'src/strategies/google.strategy';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { User } from '../users/entities/user.entity';
 
 @Module({
   imports: [
     UsersModule,
+    TypeOrmModule.forFeature([User]),
     CloudinaryModule,
     PassportModule.register({ defaultStrategy: 'jwt', session: false }),
     JwtModule.registerAsync({
