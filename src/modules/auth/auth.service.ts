@@ -32,7 +32,10 @@ export class AuthService {
     if (!isMatch)
       throw new HttpException('Bad credential', HttpStatus.UNAUTHORIZED);
     //generate JWT
-    return this.generateTokens(user.id, user.email, user.role, user.cart.id);
+    return {
+      user: user,
+      ...(await this.generateTokens(user.id, user.email, user.role, user.cart.id))
+    }
   }
 
   async refresh(refreshToken: string) {

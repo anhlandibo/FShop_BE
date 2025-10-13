@@ -198,7 +198,7 @@ export class CategoriesService {
   }
 
   async getBySlug(slug: string) {
-    const category = await this.categoryRepository.findOne({ where: { slug }, relations: ['attributeCategories', 'department'] });
+    const category = await this.categoryRepository.findOne({ where: { slug }, relations: ['attributeCategories', 'department', 'attributeCategories.attribute'] });
     if (!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
     return category;
   }

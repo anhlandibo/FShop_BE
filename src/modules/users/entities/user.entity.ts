@@ -1,6 +1,7 @@
 import { Role } from 'src/constants/role.enum';
 import { Address } from 'src/modules/address/entities/address.entity';
 import { Cart } from 'src/modules/carts/entities';
+import { Notification } from 'src/modules/notifications/entities/notification.entity';
 import { Order } from 'src/modules/orders/entities';
 import { Wishlist } from 'src/modules/wishlists/entities/wishlist.entity';
 import {
@@ -33,7 +34,7 @@ export class User {
   @Column()
   password: string;
 
-  @Column({type: 'enum', enum: Role, default: Role.User})
+  @Column({ type: 'enum', enum: Role, default: Role.User })
   role: Role;
 
   @CreateDateColumn()
@@ -42,7 +43,7 @@ export class User {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @OneToOne(() => Cart, (cart) => cart.user, {cascade: true})
+  @OneToOne(() => Cart, (cart) => cart.user, { cascade: true })
   cart: Cart;
 
   @OneToMany(() => Address, address => address.user)
@@ -53,4 +54,8 @@ export class User {
 
   @OneToMany(() => Wishlist, wishlist => wishlist.user)
   wishlist: Wishlist[];
+
+  @OneToMany(() => Notification, notification => notification.user)
+  notifications: Notification[];
+
 }
