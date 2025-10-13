@@ -24,7 +24,7 @@ import { StartTimingMiddleware } from './middlewares/start-timing.middleware';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { BrandsModule } from './modules/brands/brands.module';
 import { ProductsModule } from './modules/products/products.module';
-import { SeedModule } from './modules/seed/seed.module';
+import { SeedModule } from './modules/seeding/seed.module';
 import { CartsModule } from './modules/carts/carts.module';
 import { AddressModule } from './modules/address/address.module';
 import { OrdersModule } from './modules/orders/orders.module';
