@@ -10,6 +10,8 @@ import { ProductVariant } from '../products/entities';
 import { Address } from '../address/entities/address.entity';
 import { QueryDto } from 'src/dto/query.dto';
 import { ActorRole, ensureTransitionAllowed } from 'src/utils/order-status.rules';
+import { NotificationsService } from 'src/modules/notifications/notifications.service';
+import { NotificationsGateway } from 'src/modules/notifications/notifications.gateway';
 
 @Injectable()
 export class OrdersService {
@@ -18,15 +20,16 @@ export class OrdersService {
     @InjectRepository(OrderItem) private orderItemRepository: Repository<OrderItem>,
     @InjectRepository(ProductVariant) private readonly variantRepo: Repository<ProductVariant>,
     @InjectDataSource() private readonly dataSource: DataSource,
-  ) {}
+    private notiService: NotificationsService,
+  ) { }
 
   async create(userId: number, createOrderDto: CreateOrderDto) {
     return await this.dataSource.manager.transaction(async (manager) => {
       const { addressId, note, items } = createOrderDto;
-      const address = await manager.findOne(Address, { where: { user: { id: userId }, id: addressId }});
+      const address = await manager.findOne(Address, { where: { user: { id: userId }, id: addressId } });
       if (!address) throw new HttpException('Address not found', HttpStatus.NOT_FOUND);
       console.log(address)
-      const cart = await manager.findOne(Cart, { where: { user: { id: userId }}, relations: ['items', 'items.variant', 'user', 'items.variant.product']});
+      const cart = await manager.findOne(Cart, { where: { user: { id: userId } }, relations: ['items', 'items.variant', 'user', 'items.variant.product'] });
 
       if (!cart || cart.items.length == 0) throw new HttpException('Cart is empty', HttpStatus.NOT_FOUND);
 
@@ -46,10 +49,10 @@ export class OrdersService {
 
       let totalAmount = 0;
       for (const item of items) {
-        const cartItem = cart.items.find(cartItem => cartItem.variant.id === item.variantId );
+        const cartItem = cart.items.find(cartItem => cartItem.variant.id === item.variantId);
         if (!cartItem) throw new HttpException('Cart item not found', HttpStatus.NOT_FOUND);
         //Check tồn kho
-        if (item.quantity > cartItem.variant.remaining) 
+        if (item.quantity > cartItem.variant.remaining)
           throw new HttpException('Not enough quantity', HttpStatus.BAD_REQUEST);
 
         // Trừ tồn kho
@@ -61,7 +64,7 @@ export class OrdersService {
           order,
           variant: cartItem.variant,
           quantity: item.quantity,
-           price: cartItem.variant.product.price
+          price: cartItem.variant.product.price
         })
         await manager.save(orderItem);
         totalAmount += item.quantity * orderItem.price;
@@ -76,6 +79,11 @@ export class OrdersService {
 
       order.totalAmount = totalAmount;
       await manager.save(order);
+      const notification = await this.notiService.create({
+        message: `Đơn hàng đã được đặt: ${order.status}`,
+        title: `Đặt đơn hàng #${order.id}`,
+        userId: order.user.id
+      })
       return order;
     })
   }
@@ -83,7 +91,7 @@ export class OrdersService {
   async getMyOrders(userId: number, query: QueryDto) {
     const { page, limit, sortBy = 'id', sortOrder = 'DESC' } = query;
     const [data, total] = await this.orderRepository.findAndCount({
-      where: { user: { id: userId}},
+      where: { user: { id: userId } },
       relations: ['items', 'items.variant'],
       ...(page && limit && { take: limit, skip: (page - 1) * limit }),
       order: { [sortBy]: sortOrder },
@@ -96,13 +104,13 @@ export class OrdersService {
   async getOrderById(userId: number, id: number) {
     const order = await this.orderRepository.findOne({
       where: { user: { id: userId }, id },
-      relations: ['items', 'items.variant'],
+      relations: ['items', 'items.variant', 'items.variant.product', 'items.variant.variantAttributeValues', 'items.variant.variantAttributeValues.attributeCategory', 'items.variant.variantAttributeValues.attributeCategory.attribute'],
     });
     if (!order) throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
     return order
   }
 
-  async getAll(query: QueryDto){
+  async getAll(query: QueryDto) {
     const { page, limit, search, sortBy = 'id', sortOrder = 'DESC' } = query;
     const [data, total] = await this.orderRepository.findAndCount({
       where: search
@@ -124,9 +132,9 @@ export class OrdersService {
     return response;
   }
 
-  async updateStatus(orderId: number, next: OrderStatus, actor: {id: number, role: ActorRole, reason?: string }) {
+  async updateStatus(orderId: number, next: OrderStatus, actor: { id: number, role: ActorRole, reason?: string }) {
     return this.dataSource.transaction(async (manager) => {
-      const order = await manager.findOne(Order, { where: { id: orderId }, relations: ['items']});
+      const order = await manager.findOne(Order, { where: { id: orderId }, relations: ['items'] });
       if (!order) throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
 
       try {
@@ -148,7 +156,6 @@ export class OrdersService {
       const prev = order.status;
       order.status = next;
       await manager.save(order);
-
       return { message: 'Order status updated', from: prev, to: next };
     });
   }
