@@ -12,6 +12,7 @@ import { CreateCategoryDto, UpdateCategoryDto, DeleteCategoriesDto } from './dto
 import { Department } from '../departments/entities/department.entity';
 import { AttributeCategory } from '../attributes/entities/attribute-category.entity';
 import { CreateAttributeValueDto } from '../attributes/dto/create-attribute-value.dto';
+import { Attribute } from '../attributes/entities/attribute.entity';
 
 @Injectable()
 export class CategoriesService {
@@ -80,8 +81,7 @@ export class CategoriesService {
   async update(id: number, updateCategoryDto: UpdateCategoryDto, file?: Express.Multer.File) {
     return await this.dataSource.transaction(async (manager) => {
       const category = await manager.findOne(Category, { where: { id }, relations: ['attributeCategories', 'department'] });
-      if (!category)
-        throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
+      if (!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
       // Update department
       if (updateCategoryDto.departmentId) {
         const department = await manager.findOne(Department, { where: { id: updateCategoryDto.departmentId } });
@@ -102,34 +102,69 @@ export class CategoriesService {
       }
       await manager.save(category);
 
-      // Update attributes
-      if (updateCategoryDto.attributes) {
-        const incoming = updateCategoryDto.attributes;
-        const incomingMap = new Map<number, string>(incoming.map((attr) => [attr.attributeId, attr.value]));
+      // thêm mới
+      if (updateCategoryDto.addAttributes?.length) {
+        for (const attr of updateCategoryDto.addAttributes) {
+          const attribute = await manager.findOne(Attribute, { where: { id: attr.attributeId } });
+          if (!attribute) throw new HttpException('Attribute not found', HttpStatus.NOT_FOUND);
 
-        for (const attrCat of category.attributeCategories) {
-          if (incomingMap.has(attrCat.attribute.id)) {
-            const newValue = incomingMap.get(attrCat.attribute.id);
-            if (newValue !== undefined && newValue !== attrCat.value) {
-              attrCat.value = newValue; // thay đổi value
-              await manager.save(attrCat);
+          const newAttrCat = manager.create(AttributeCategory, 
+            {
+              attribute,
+              category,
+              value: attr.value,
             }
-            incomingMap.delete(attrCat.attribute.id);
-          } else await manager.remove(attrCat);
-        }
-        // attributes mới
-        for (const [id, value] of incomingMap) {
-          const newAttrCat = manager.create(AttributeCategory, {
-            attribute: { id },
-            category,
-            value,
-          });
+          )
+          await manager.save(newAttrCat);
         }
       }
 
-      return category;
+      // cập nhật attribute
+      if (updateCategoryDto.updateAttributes?.length) {
+        for (const attr of updateCategoryDto.updateAttributes) {
+          const attrCat = await manager.findOne(AttributeCategory,
+            {
+              where: {id: attr.attributeCategoryId},
+              relations: ['attribute', 'category']
+            }
+          )
+          if (!attrCat) throw new HttpException('Attribute Category not found', HttpStatus.NOT_FOUND);
+
+          if (attrCat.category.id !== category.id) 
+            throw new HttpException('Attribute Category not belong to this category', HttpStatus.NOT_FOUND);
+
+          if (attr.value) attrCat.value = attr.value;
+          await manager.save(attrCat);
+        }
+      }
+
+      // xóa attribute category
+      if (updateCategoryDto.deleteAttributes?.length) {
+        for (const attr of updateCategoryDto.deleteAttributes) {
+          const attrCat = await manager.findOne(AttributeCategory, {
+            where: { id: Number(attr.attributeCategoryId) },
+            relations: ['category', 'variantAttributeValues'],
+          });
+          if (!attrCat) continue;
+          if (attrCat.category.id !== category.id)
+            throw new HttpException(`AttributeCategory ${attr.attributeCategoryId} không thuộc Category ${category.id}`, HttpStatus.BAD_REQUEST);
+          if (attrCat.variantAttributeValues?.length > 0) 
+            throw new HttpException(`Cannot delete AttributeCategory ${attr.attributeCategoryId} because it has variantAttributeValues`, HttpStatus.BAD_REQUEST);
+
+          await manager.remove(attrCat);
+        }
+      }
+
+      const updated = await manager.findOne(Category, {
+        where: { id: category.id },
+        relations: ['attributeCategories', 'attributeCategories.attribute', 'department'],
+      });
+
+      return updated;
+
     });
   }
+
 
   async delete(id: number) {
     return await this.dataSource.transaction(async (manager) => {

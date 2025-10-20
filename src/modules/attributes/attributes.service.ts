@@ -79,8 +79,6 @@ export class AttributesService {
     });
   }
 
-
-
   async getAttributeCategory(categoryId: number, attributeId: number) {
     return await this.dataSource.transaction(async (manager) => {
       const attribute = await manager.findOne(Attribute, { where: { id: attributeId } });
