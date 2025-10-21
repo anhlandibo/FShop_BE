@@ -58,7 +58,6 @@ export class AddressController {
   @ApiOperation({ summary: 'Get address by ID' })
   getAddress(@Req() req: Request, @Param('addressId') addressId: number) {
     const {id} = req['user'];
-    console.log(id)
     return this.addressService.getAddressById(id, addressId);
   }
 }

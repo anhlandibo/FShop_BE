@@ -1,6 +1,6 @@
 import { Order } from "src/modules/orders/entities";
 import { User } from "src/modules/users/entities/user.entity";
-import { CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn, Unique } from "typeorm";
+import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 import { Coupon } from "./coupon.entity";
 
 @Entity('coupon_redemptions')
@@ -24,6 +24,12 @@ export class CouponRedemption {
   @JoinColumn({ name: 'orderId' })
   order: Order;
 
+  @Column({ default: false })
+  isRedeemed: boolean;
+
   @CreateDateColumn()
+  appliedAt: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
   redeemedAt: Date;
 }
