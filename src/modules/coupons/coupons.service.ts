@@ -36,12 +36,8 @@ export class CouponsService {
       const existing = await manager.findOne(Coupon, {
         where: { code: createCouponDto.code },
       });
-      if (existing)
-        throw new HttpException(
-          'Coupon code already exists',
-          HttpStatus.BAD_REQUEST,
-        );
-
+      if (existing) throw new HttpException('Coupon code already exists',HttpStatus.BAD_REQUEST);
+        
       const coupon = manager.create(Coupon, {
         ...createCouponDto,
         startDate: new Date(createCouponDto.startDate),
