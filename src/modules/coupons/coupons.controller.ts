@@ -5,7 +5,7 @@ import { QueryDto } from 'src/dto/query.dto';
 import { UpdateCouponDto } from './dto/update-coupon.dto';
 import { ValidateCouponDto } from './dto/validate-coupon.dto';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { ApiBadRequestResponse, ApiBearerAuth, ApiCreatedResponse, ApiNotFoundResponse, ApiOperation } from '@nestjs/swagger';
 import { ApplyCouponDto } from './dto/apply-coupon.dto';
 import { RedeemCouponDto } from './dto/redeem-coupon.dto';
 
@@ -14,26 +14,36 @@ export class CouponsController {
   constructor(private readonly couponsService: CouponsService) {}
 
   @Post()
+  @ApiOperation({ summary: 'Create coupon' })
+  @ApiCreatedResponse({description: 'Coupon created successfully'})
+  @ApiBadRequestResponse({description: 'Coupon already exists'})
   create(@Body() createCouponDto: CreateCouponDto) {
     return this.couponsService.create(createCouponDto);
   }
 
   @Get('all')
+  @ApiOperation({ summary: 'Get all coupons' })
   getAll(@Query() query: QueryDto) {
     return this.couponsService.getAll(query);
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get coupon by ID' })
+  @ApiNotFoundResponse({description: 'Coupon not found'})
   getById(@Param('id') id: number) {
     return this.couponsService.getById(id);
   }
 
   @Patch(':id')
+  @ApiOperation({ summary: 'Update coupon by ID' })
+  @ApiNotFoundResponse({description: 'Coupon not found'})
   update(@Param('id') id: number, @Body() updateCouponDto: UpdateCouponDto) {
     return this.couponsService.update(id, updateCouponDto);
   }
 
   @Delete(':id')
+  @ApiOperation({ summary: 'Delete coupon by ID' })
+  @ApiNotFoundResponse({description: 'Coupon not found'})
   delete(@Param('id') id: number) {
     return this.couponsService.delete(id);
   }
@@ -56,8 +66,8 @@ export class CouponsController {
     return this.couponsService.apply(dto.code, dto.orderId, id);
   }
 
-  @Post('redeem')
   @UseGuards(AuthGuard('jwt'))
+  @Post('redeem')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Validate coupon' })
   redeem(@Req() req: Request, @Body() dto: RedeemCouponDto) {

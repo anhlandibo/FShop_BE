@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
@@ -17,6 +18,7 @@ import { plainToInstance } from 'class-transformer';
 import { VariantAttributeValue } from './entities/variant-attribute-value.entity';
 import { AttributeCategory } from '../attributes/entities/attribute-category.entity';
 import { ProductQueryDto } from 'src/dto/productQuery.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
 
 @Injectable()
 export class ProductsService {
@@ -189,25 +191,177 @@ export class ProductsService {
     return product;
   }
 
-  /* async delete(id: number) {
-    const product = await this.productRepository.findOne({where: { id }});
-    if (!product || product.isActive === false) 
-      throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
-    await this.productRepository.update(id, { isActive: false });
-    await this.productVariantRepository.update(
-      { product: { id } },
-      { isActive: false },
-    );
-    await this.productImageRepository.update(
-      { product: { id } },
-      { isActive: false },
-    );
+  async update(
+    id: number, 
+    dto: UpdateProductDto, 
+    newVariantImages: Express.Multer.File[],
+    updatedVariantImages: Express.Multer.File[],
+    newProductImages: Express.Multer.File[],
+    updateProductImages: Express.Multer.File[],
+  ) {
+    return await this.dataSource.transaction(async (manager) => {
+      const product = await manager.findOne(Product, {
+        where: { id },
+        relations: ['variants', 'brand', 'category', 'images'],
+      })
 
-    return {
-      message: 'Product deleted successfully',
-      deleteId: id,
-    };
-  } */
+      if (!product) throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+
+      // Update basic fields
+      if (dto.name !== undefined) product.name = dto.name;
+      if (dto.description !== undefined) product.description = dto.description;
+      if (dto.price !== undefined) product.price = dto.price;
+
+      if (dto.brandId !== undefined) {
+        const brand = await manager.findOne(Brand, { where: { id: dto.brandId } });
+        if (!brand) throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
+        product.brand = brand;
+      }
+
+      if (dto.categoryId !== undefined) {
+        const category = await manager.findOne(Category, { where: { id: dto.categoryId } });
+        if (!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
+        product.category = category;
+      }
+
+      await manager.save(product);
+
+      // variants
+      // add variants
+      if (dto.newVariants?.length) {
+        for (let i = 0; i < dto.newVariants.length; i++) {
+          const v = dto.newVariants[i];
+          let uploaded;
+          if (newVariantImages?.[i])
+            uploaded = await this.cloudinaryService.uploadFile(newVariantImages[i]);
+          const created = manager.create(ProductVariant, {
+            product,
+            quantity: v.quantity,
+            remaining: v.quantity,
+            imageUrl: uploaded?.secure_url,
+            publicId: uploaded?.public_id,
+            isActive: true
+          })
+          const saved = await manager.save(created);
+          if (v.attributes?.length) {
+            const vavs: VariantAttributeValue[] = [];
+            for (const a of v.attributes) {
+              const ac = await manager.findOne(AttributeCategory, { where: { id: a.attributeCategoryId } });
+              if (!ac) throw new HttpException('Attribute category not found', HttpStatus.NOT_FOUND);
+              vavs.push(manager.create(VariantAttributeValue, {productVariant: saved, attributeCategory: ac}));
+            }
+            await manager.save(vavs);
+          }
+        }
+      }
+
+      // update variants
+      if (dto.updatedVariants?.length) {
+        for (let i = 0; i < dto.updatedVariants.length; i++) {
+          const v = dto.updatedVariants[i];
+          const variant = await manager.findOne(ProductVariant, {
+            where: {id: v.id, product: {id: product.id}},
+            relations: ['variantAttributeValues']
+          })
+          if (!variant) throw new HttpException(`Variant ${v.id} not found`, HttpStatus.NOT_FOUND);
+          if (v.quantity !== undefined){
+            variant.quantity = v.quantity;
+            variant.remaining = v.quantity; // temporary 
+          }
+
+          if (updatedVariantImages?.[i]) {
+            if (variant.publicId) {
+              try {await this.cloudinaryService.deleteFile(variant.publicId)} 
+              catch { /* empty */ }
+            }
+            const up = await this.cloudinaryService.uploadFile(updatedVariantImages[i]);
+            variant.imageUrl = up?.secure_url;
+            variant.publicId = up?.public_id;
+          }
+          await manager.save(variant);
+
+          // replace attributes
+          if (v.attributes){
+            await manager.delete(VariantAttributeValue, {productVariant: {id: v.id}});
+            const vavs: VariantAttributeValue[] = [];
+            for (const a of v.attributes) {
+              const ac = await manager.findOne(AttributeCategory, { where: { id: a.attributeCategoryId } });
+              if (!ac) throw new HttpException(`AttributeCategory not found`, HttpStatus.NOT_FOUND);
+              vavs.push(manager.create(VariantAttributeValue, { productVariant: variant, attributeCategory: ac }));
+            }
+            await manager.save(vavs);
+          }
+        }
+      }
+
+      // 5) Delete variants
+      if (dto.deletedVariantIds?.length) {
+        const toDel = await manager.find(ProductVariant, { where: dto.deletedVariantIds.map((id) => ({ id })) });
+        for (const v of toDel) {
+          if (v.publicId) {
+            try { await this.cloudinaryService.deleteFile(v.publicId); } 
+            catch { /* empty */ }
+          }
+          v.isActive = false;
+        }
+        
+        await manager.save(toDel);
+      }
+
+      // 6) Add new product images
+      if (newProductImages?.length) {
+        const uploads = await Promise.all(newProductImages.map((f) => this.cloudinaryService.uploadFile(f)));
+        const imgs = uploads.map((u) =>
+          manager.create(ProductImage, {
+            product,
+            imageUrl: u?.secure_url,
+            publicId: u?.public_id,
+            isActive: true,
+          }),
+        );
+        await manager.save(imgs);
+      }
+
+      // 7) Replace existing product images by id (ids & files theo cùng index)
+      if (dto.updatedProductIds?.length) {
+        if (!updateProductImages?.length || updateProductImages.length !== dto.updatedProductIds.length) {
+          throw new HttpException('updatedProductIds length must match updateProductImages length', HttpStatus.BAD_REQUEST);
+        }
+
+        for (let i = 0; i < dto.updatedProductIds.length; i++) {
+          const imgId = dto.updatedProductIds[i];
+          const file = updateProductImages[i];
+          const img = await manager.findOne(ProductImage, { where: { id: imgId, product: { id: product.id } } });
+          if (!img) throw new HttpException(`Product image ${imgId} not found`, HttpStatus.NOT_FOUND);
+
+          if (img.publicId) {
+            try { await this.cloudinaryService.deleteFile(img.publicId); } catch { /* empty */ }
+          }
+          const up = await this.cloudinaryService.uploadFile(file);
+          img.imageUrl = up?.secure_url;
+          img.publicId = up?.public_id;
+          img.isActive = true;
+          await manager.save(img);
+        }
+      }
+
+      // 8) Delete product images by id
+      if (dto.deletedProductIds?.length) {
+        const imgs = await manager.find(ProductImage, { where: dto.deletedProductIds.map((id) => ({ id, product: { id: product.id } })) });
+        for (const img of imgs) {
+          if (img.publicId) {
+            try { await this.cloudinaryService.deleteFile(img.publicId); } catch { /* empty */ }
+          }
+          img.isActive = false;
+        }
+        await manager.save(imgs);
+      }
+
+      // 9) Return fully-hydrated product
+      return this.getProductById(product.id);
+
+    })
+  }
 }
 
 function In(attributeCategoryIds: number[] | undefined): number | import("typeorm").FindOperator<number> | undefined {
