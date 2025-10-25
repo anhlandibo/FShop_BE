@@ -345,7 +345,7 @@ export class ProductsService {
         }
       }
 
-      // 8) Delete product images by id
+      // Delete product images by id
       if (dto.deletedProductIds?.length) {
         const imgs = await manager.find(ProductImage, { where: dto.deletedProductIds.map((id) => ({ id, product: { id: product.id } })) });
         for (const img of imgs) {

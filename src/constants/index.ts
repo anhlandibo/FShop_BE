@@ -4,3 +4,4 @@ export * from './role.enum';
 export * from './coupon-status.enum';
 export * from './discount-type.enum';
 export * from './target-type.enum'
+export * from './review-status.enum'

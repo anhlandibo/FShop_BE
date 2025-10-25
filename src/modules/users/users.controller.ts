@@ -22,6 +22,7 @@ export class UsersController {
   create(@Body() createUserDto: CreateUserDto, @UploadedFile() file?: Express.Multer.File) {
     return this.usersService.create(createUserDto, file);
   }
+  
   @Post('create-multiple')
   @ApiOperation({ summary: 'Create multiple users' })
   createMultiple(@Body() createUsersDto: CreateUserDto[]) {

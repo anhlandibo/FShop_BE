@@ -19,6 +19,9 @@ export class AttributeCategory {
   @Column()
   value: string
 
+  @Column({type: 'boolean', default: true})
+  isActive: boolean;  
+
   @OneToMany(() => VariantAttributeValue, variantAttributeValue => variantAttributeValue.attributeCategory)
   variantAttributeValues: VariantAttributeValue[];
 }
