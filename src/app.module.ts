@@ -33,6 +33,7 @@ import { DepartmentsModule } from './modules/departments/departments.module';
 import { AttributesModule } from './modules/attributes/attributes.module';
 import { WishlistsModule } from './modules/wishlists/wishlists.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
 import path from 'path';
 
 @Module({
@@ -64,6 +65,7 @@ import path from 'path';
     AttributesModule,
     WishlistsModule,
     NotificationsModule,
+    ReviewsModule,
   ],
   controllers: [AppController],
   providers: [

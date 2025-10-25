@@ -3,6 +3,8 @@ import { Address } from 'src/modules/address/entities/address.entity';
 import { Cart } from 'src/modules/carts/entities';
 import { Notification } from 'src/modules/notifications/entities/notification.entity';
 import { Order } from 'src/modules/orders/entities';
+import { ReviewVote } from 'src/modules/reviews/entities/review-vote.entity';
+import { Review } from 'src/modules/reviews/entities/review.entity';
 import { Wishlist } from 'src/modules/wishlists/entities/wishlist.entity';
 import {
   Entity,
@@ -58,4 +60,9 @@ export class User {
   @OneToMany(() => Notification, notification => notification.user)
   notifications: Notification[];
 
+  @OneToMany(() => Review, review => review.user)
+  reviews: Review[];
+
+  @OneToMany(() => ReviewVote, (vote) => vote.user)
+  reviewVotes: ReviewVote[];
 }

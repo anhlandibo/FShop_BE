@@ -5,6 +5,7 @@ import { ProductVariant } from "./product-variant.entity";
 import { ProductImage } from "./product-image.entity";
 import { Exclude } from "class-transformer";
 import { Wishlist } from "src/modules/wishlists/entities/wishlist.entity";
+import { Review } from "src/modules/reviews/entities/review.entity";
 @Entity('products')
 export class Product {
   @PrimaryGeneratedColumn()
@@ -18,6 +19,12 @@ export class Product {
 
   @Column({ type: 'decimal', precision: 10, scale: 2})
   price: number;
+
+  @Column({ type: 'decimal', precision: 2, scale: 1, default: 0 })
+  averageRating: number;
+
+  @Column({ type: 'int', default: 0 })
+  reviewCount: number;
 
   @CreateDateColumn()
   createdAt: Date;
@@ -42,4 +49,7 @@ export class Product {
 
   @OneToMany(() => Wishlist, wishlist => wishlist.product)
   wishlist: Wishlist[];
+
+  @OneToMany(() => Review, (review) => review.product)
+  reviews: Review[];
 }
