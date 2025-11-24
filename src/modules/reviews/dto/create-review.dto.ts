@@ -6,6 +6,9 @@ export class CreateReviewDto {
   @IntegerRequired('Product ID')
   productId: number
 
+  @IntegerRequired('Order ID')
+  orderId: number
+
   @NumberRequired('Rating', 0.5, 5)
   rating: number;
 

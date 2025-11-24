@@ -8,6 +8,7 @@ import { ActorRole } from 'src/utils/order-status.rules';
 import { RolesGuard } from 'src/guards/roles.guard';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBadRequestResponse, ApiNotFoundResponse, ApiOperation } from '@nestjs/swagger';
+import { OrderQueryDto } from 'src/dto/orderQuery.dto';
 
 @Controller('orders')
 export class OrdersController {
@@ -34,7 +35,7 @@ export class OrdersController {
 
   @Get('all')
   @ApiOperation({ summary: 'Get all orders' })
-  getAll(@Query() query: QueryDto) {
+  getAll(@Query() query: OrderQueryDto) {
     return this.ordersService.getAll(query);
   }
 

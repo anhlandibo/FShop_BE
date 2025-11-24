@@ -34,12 +34,14 @@ import { AttributesModule } from './modules/attributes/attributes.module';
 import { WishlistsModule } from './modules/wishlists/wishlists.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 import path from 'path';
+import vnpayConfig from './configs/vnpay.config';
 
 @Module({
   imports: [
     UsersModule,
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, load: [vnpayConfig] }),
     //use module globally
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
@@ -66,6 +68,7 @@ import path from 'path';
     WishlistsModule,
     NotificationsModule,
     ReviewsModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [
