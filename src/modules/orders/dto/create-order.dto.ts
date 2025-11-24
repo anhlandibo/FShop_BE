@@ -1,7 +1,8 @@
-import { NumberRequired, StringOptional } from "src/decorators/dto.decorator";
+import { NumberRequired, StringOptional, StringRequired } from "src/decorators/dto.decorator";
 import { CreateOrderItemDto } from "./create-order-item.dto";
-import { ArrayNotEmpty, IsArray } from "class-validator";
+import { ArrayNotEmpty, IsArray, IsEnum, IsNotEmpty } from "class-validator";
 import { Type } from "class-transformer";
+import { PaymentMethod } from "src/constants/payment-method.enum";
 
 export class CreateOrderDto {
   @NumberRequired('Address Id')
@@ -9,6 +10,10 @@ export class CreateOrderDto {
 
   @StringOptional()
   note?: string
+
+  @IsEnum(PaymentMethod, { message: 'Invalid payment method' })
+  @IsNotEmpty()
+  paymentMethod: PaymentMethod
   
   @IsArray()
   @ArrayNotEmpty()

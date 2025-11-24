@@ -4,6 +4,7 @@ import { User } from "src/modules/users/entities/user.entity";
 import { Column, CreateDateColumn, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { ReviewImage } from "./review-image.entity";
 import { ReviewVote } from "./review-vote.entity";
+import { Order } from "src/modules/orders/entities";
 
 @Entity('reviews')
 export class Review {
@@ -12,6 +13,9 @@ export class Review {
 
   @ManyToOne(() => User, (user) => user.reviews)
   user: User;
+
+  @ManyToOne(() => Order, (order) => order.reviews)
+  order: Order;
 
   @ManyToOne(() => Product, (product) => product.reviews)
   product: Product;

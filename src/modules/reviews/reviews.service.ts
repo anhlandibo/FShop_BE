@@ -13,12 +13,13 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { User } from '../users/entities/user.entity';
 import { Product } from '../products/entities';
-import { ReviewStatus } from 'src/constants';
+import { OrderStatus, ReviewStatus } from 'src/constants';
 import { QueryDto } from 'src/dto/query.dto';
 import { hashKey } from 'src/utils/hash';
 import { VoteReviewDto } from './dto/vote-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { NotificationsService } from '../notifications/notifications.service';
+import { Order } from '../orders/entities';
 
 @Injectable()
 export class ReviewsService {
@@ -43,14 +44,42 @@ export class ReviewsService {
   ) {
     return await this.dataSource.transaction(async (manager) => {
       const user = await manager.findOne(User, { where: { id: userId } });
-      if (!user)
-        throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+      if (!user) throw new HttpException('User not found', HttpStatus.NOT_FOUND);
 
       const product = await manager.findOne(Product, {
         where: { id: createReviewDto.productId },
       });
-      if (!product)
-        throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+      if (!product) throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+
+      const order = await manager.findOne(Order, {
+        where: {
+          id: createReviewDto.orderId,
+          user: { id: userId },
+        },
+        relations: ['items', 'items.product'],
+      });
+      if (!order) throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
+
+      if (order.status !== OrderStatus.DELIVERED)
+        throw new HttpException('You can only review products after the order has been delivered', HttpStatus.BAD_REQUEST);
+
+      const hasProduct = order.items?.some(
+        (item) => item.variant && item.variant.product.id === createReviewDto.productId,
+      );
+
+      if (!hasProduct) 
+        throw new HttpException('This product is not part of the specified order', HttpStatus.BAD_REQUEST);
+
+      const existingReview = await manager.findOne(Review, {
+        where: {
+          user: { id: userId },
+          product: { id: createReviewDto.productId },
+          order: { id: createReviewDto.orderId },
+        }
+      })
+      if (existingReview) 
+        throw new HttpException('You already reviewed this product in this order', HttpStatus.BAD_REQUEST);
+      
 
       const review = manager.create(Review, {
         user,
