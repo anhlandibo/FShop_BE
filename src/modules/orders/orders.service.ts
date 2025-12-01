@@ -12,36 +12,11 @@ import { QueryDto } from 'src/dto/query.dto';
 import { ActorRole, ensureTransitionAllowed } from 'src/utils/order-status.rules';
 import { NotificationsService } from 'src/modules/notifications/notifications.service';
 import { NotificationsGateway } from 'src/modules/notifications/notifications.gateway';
-import { PaymentStatus } from 'src/constants/payment-status.enum';
-import { PaymentMethod } from 'src/constants/payment-method.enum';
 import { OrderQueryDto } from 'src/dto/orderQuery.dto';
+import { PaymentStatus } from 'src/constants/payment-status.enum';
 
 @Injectable()
 export class OrdersService {
-  async getOrderRaw(orderId: number) {
-    return await this.orderRepository.findOne({
-      where: { id: orderId },
-    });
-  }
-
-  async updateVNPayTxnRef(orderId: number, txnRef: string) {
-    await this.orderRepository.update(orderId, {
-      paymentTxnRef: txnRef,
-    });
-  }
-  async updatePaymentStatus(orderId: number, status: 'SUCCESS' | 'FAILED') {
-    await this.orderRepository.update(orderId, {
-      paymentStatus:
-        status === 'SUCCESS' ? PaymentStatus.SUCCESS : PaymentStatus.FAILED,
-    });
-
-    if (status === 'SUCCESS') {
-      await this.orderRepository.update(orderId, {
-        status: OrderStatus.CONFIRMED,
-      });
-    }
-  }
-
   constructor(
     @InjectRepository(Order) private orderRepository: Repository<Order>,
     @InjectRepository(OrderItem)
@@ -78,9 +53,9 @@ export class OrdersService {
         district: address.district,
         commune: address.commune,
         status: OrderStatus.PENDING,
-        paymentMethod: paymentMethod,
-        paymentStatus: PaymentStatus.PENDING,
         note: note,
+        paymentMethod,
+        paymentStatus: PaymentStatus.PENDING,
         totalAmount: 0,
       });
       await manager.save(order);
