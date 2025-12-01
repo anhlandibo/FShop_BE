@@ -1,10 +1,12 @@
 import { Exclude } from "class-transformer";
 import { OrderStatus } from "src/constants";
 import { User } from "src/modules/users/entities/user.entity";
-import { Column, CreateDateColumn, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { OrderItem } from ".";
-import { PaymentStatus } from "src/constants/payment-status.enum";
 import { Review } from "src/modules/reviews/entities/review.entity";
+import { PaymentMethod } from "src/constants/payment-method.enum";
+import { PaymentStatus } from "src/constants/payment-status.enum";
+import { Payment } from "src/modules/payments/entities/payment.entity";
 
 @Entity('orders')
 export class Order {
@@ -35,17 +37,22 @@ export class Order {
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   totalAmount: number;
 
-  @Column({ nullable: true})
-  paymentMethod: string;
-
-  @Column({ type: 'enum', enum: PaymentStatus, default: PaymentStatus.PENDING })
-  paymentStatus: PaymentStatus;
-
-  @Column({ nullable: true })
-  paymentTxnRef: string;
-
   @Column({ type: 'text', nullable: true })
   note: string;
+
+  @Column({
+    type: 'enum',
+    enum: PaymentMethod,
+    default: PaymentMethod.COD,
+  })
+  paymentMethod: PaymentMethod;
+
+  @Column({
+    type: 'enum',
+    enum: PaymentStatus,
+    default: PaymentStatus.PENDING,
+  })
+  paymentStatus: PaymentStatus;
 
   @ManyToOne(() => User, (user) => user.orders)
   @Exclude()
@@ -56,6 +63,9 @@ export class Order {
 
   @OneToMany(() => OrderItem, (orderItem) => orderItem.order)
   items: OrderItem[];
+
+  @OneToOne(() => Payment, (payment) => payment.order)
+  payment: Payment;
 
   @CreateDateColumn()
   createdAt: Date;

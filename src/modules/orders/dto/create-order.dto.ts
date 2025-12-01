@@ -11,9 +11,8 @@ export class CreateOrderDto {
   @StringOptional()
   note?: string
 
-  @IsEnum(PaymentMethod, { message: 'Invalid payment method' })
-  @IsNotEmpty()
-  paymentMethod: PaymentMethod
+  @IsEnum(PaymentMethod)
+  paymentMethod: PaymentMethod;
   
   @IsArray()
   @ArrayNotEmpty()
