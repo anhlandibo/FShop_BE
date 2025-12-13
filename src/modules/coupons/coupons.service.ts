@@ -14,6 +14,7 @@ import { CouponStatus, DiscountType, TargetType } from 'src/constants';
 import { ProductVariant } from '../products/entities';
 import { Cart } from '../carts/entities';
 import { User } from '../users/entities/user.entity';
+import { MyCouponsQueryDto } from './dto/my-coupons-query.dto';
 
 @Injectable()
 export class CouponsService {
@@ -274,7 +275,7 @@ export class CouponsService {
       if (now > coupon.endDate)
         throw new HttpException('Coupon expired before redemption', HttpStatus.BAD_REQUEST);
 
-      if (coupon.status !== CouponStatus.ACTIVE) 
+      if (coupon.status !== CouponStatus.ACTIVE)
         throw new HttpException('Coupon is not active', HttpStatus.BAD_REQUEST);
 
       redemption.isRedeemed = true;
@@ -291,5 +292,60 @@ export class CouponsService {
         message: `Coupon ${coupon.code} successfully redeemed for order #${orderId}`,
       };
     })
+  }
+
+  async getMyCoupons(userId: number, query: MyCouponsQueryDto) {
+    const { page, limit, search, sortBy = 'appliedAt', sortOrder = 'DESC', discountType } = query;
+
+    const queryBuilder = this.couponRedemptionRepository
+      .createQueryBuilder('redemption')
+      .leftJoinAndSelect('redemption.coupon', 'coupon')
+      .leftJoinAndSelect('redemption.order', 'order')
+      .where('redemption.userId = :userId', { userId });
+
+    // Filter by discount type
+    if (discountType) {
+      queryBuilder.andWhere('coupon.discountType = :discountType', { discountType });
+    }
+
+    // Search by coupon code or name
+    if (search) {
+      queryBuilder.andWhere(
+        '(coupon.code LIKE :search OR coupon.name LIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
+    // Sorting
+    if (sortBy === 'appliedAt' || sortBy === 'redeemedAt') {
+      queryBuilder.orderBy(`redemption.${sortBy}`, sortOrder);
+    } else {
+      queryBuilder.orderBy(`coupon.${sortBy}`, sortOrder);
+    }
+
+    // Pagination
+    if (page && limit) {
+      queryBuilder.skip((page - 1) * limit).take(limit);
+    }
+
+    const [redemptions, total] = await queryBuilder.getManyAndCount();
+
+    const data = redemptions.map(redemption => ({
+      id: redemption.id,
+      coupon: redemption.coupon,
+      orderId: redemption.order?.id,
+      isRedeemed: redemption.isRedeemed,
+      appliedAt: redemption.appliedAt,
+      redeemedAt: redemption.redeemedAt,
+    }));
+
+    return {
+      pagination: {
+        total,
+        page,
+        limit,
+      },
+      data,
+    };
   }
 }

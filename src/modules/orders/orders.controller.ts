@@ -28,7 +28,7 @@ export class OrdersController {
   @Get('me')
   @ApiOperation({ summary: 'Get all orders for the authenticated user' })
   @ApiNotFoundResponse({ description: 'User not found' })
-  getMyOrders(@Req() req: Request, @Query() query: QueryDto) {
+  getMyOrders(@Req() req: Request, @Query() query: OrderQueryDto) {
     const { id } = req['user'];
     return this.ordersService.getMyOrders(id, query);
   }

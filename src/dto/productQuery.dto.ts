@@ -20,6 +20,18 @@ export class ProductQueryDto extends QueryDto {
     @IsInt({ each: true })
     attributeCategoryIds?: number[];
 
+    @IsOptional()
+    @IsArray()
+    @ArrayNotEmpty()
+    @Transform(({ value }) => {
+      if (typeof value === 'string') {
+        return value.split(',').map((v) => parseInt(v.trim(), 10)).filter(v => !isNaN(v));
+      }
+      return value;
+    })
+    @IsInt({ each: true })
+    brandIds?: number[];
+
     @NumberOptional()
     minPrice?: number
 

@@ -8,7 +8,6 @@ import { Cart, CartItem } from '../carts/entities';
 import { OrderStatus, Role } from 'src/constants';
 import { ProductVariant } from '../products/entities';
 import { Address } from '../address/entities/address.entity';
-import { QueryDto } from 'src/dto/query.dto';
 import { ActorRole, ensureTransitionAllowed } from 'src/utils/order-status.rules';
 import { NotificationsService } from 'src/modules/notifications/notifications.service';
 import { NotificationsGateway } from 'src/modules/notifications/notifications.gateway';
@@ -107,10 +106,13 @@ export class OrdersService {
     });
   }
 
-  async getMyOrders(userId: number, query: QueryDto) {
-    const { page, limit, sortBy = 'id', sortOrder = 'DESC' } = query;
+  async getMyOrders(userId: number, query: OrderQueryDto) {
+    const { page, limit, sortBy = 'id', sortOrder = 'DESC', status } = query;
     const [data, total] = await this.orderRepository.findAndCount({
-      where: { user: { id: userId } },
+      where: {
+        user: { id: userId },
+        ...(status && { status })
+      },
       relations: ['items', 'items.variant'],
       ...(page && limit && { take: limit, skip: (page - 1) * limit }),
       order: { [sortBy]: sortOrder },
