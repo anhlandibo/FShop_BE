@@ -6,8 +6,8 @@ import { NumberOptional, NumberRequired } from "src/decorators/dto.decorator";
 import { AttributeCategoryDto } from "src/modules/attributes/dto/attribute-category.dto";
 
 export class UpdateProductVariantDto {
-  @NumberRequired('Variant id')
-  id: number;
+  @NumberOptional()
+  id?: number;
 
   @NumberOptional()
   quantity?: number;

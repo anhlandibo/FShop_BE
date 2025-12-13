@@ -53,34 +53,22 @@ export class ProductsController {
 
   @Patch(':id')
   @UseInterceptors(FileFieldsInterceptor([
-    { name: 'newVariantImages', maxCount: 50 },
-    { name: 'updatedVariantImages', maxCount: 50 },
-    { name: 'newProductImages', maxCount: 50 },
-  { name: 'updateProductImages', maxCount: 50 },
+    { name: 'variantImages', maxCount: 50 },
+    { name: 'productImages', maxCount: 50 },
   ]),)
   update(
     @Param('id') id: number, 
     @Body() dto: UpdateProductDto, 
     @UploadedFiles()
     files: {
-      newVariantImages?: Express.Multer.File[];
-      updatedVariantImages?: Express.Multer.File[];
-      newProductImages?: Express.Multer.File[];
-      updateProductImages?: Express.Multer.File[];
+      variantImages?: Express.Multer.File[];
+      productImages?: Express.Multer.File[];
     },){
-      const {
-      newVariantImages = [],
-      updatedVariantImages = [],
-      newProductImages = [],
-      updateProductImages = [],
-    } = files || {};
     return this.productsService.update(
       id,
       dto,
-      newVariantImages,
-      updatedVariantImages,
-      newProductImages,
-      updateProductImages,
+      files.variantImages || [],
+      files.productImages || []
     );
   }
 }

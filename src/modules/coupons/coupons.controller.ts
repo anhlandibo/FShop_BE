@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { CouponsService } from './coupons.service';
 import { CreateCouponDto } from './dto/create-coupon.dto';
@@ -5,9 +6,10 @@ import { QueryDto } from 'src/dto/query.dto';
 import { UpdateCouponDto } from './dto/update-coupon.dto';
 import { ValidateCouponDto } from './dto/validate-coupon.dto';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiBadRequestResponse, ApiBearerAuth, ApiCreatedResponse, ApiNotFoundResponse, ApiOperation } from '@nestjs/swagger';
+import { ApiBadRequestResponse, ApiBearerAuth, ApiCreatedResponse, ApiNotFoundResponse, ApiOkResponse, ApiOperation } from '@nestjs/swagger';
 import { ApplyCouponDto } from './dto/apply-coupon.dto';
 import { RedeemCouponDto } from './dto/redeem-coupon.dto';
+import { MyCouponsQueryDto } from './dto/my-coupons-query.dto';
 
 @Controller('coupons')
 export class CouponsController {
@@ -25,6 +27,16 @@ export class CouponsController {
   @ApiOperation({ summary: 'Get all coupons' })
   getAll(@Query() query: QueryDto) {
     return this.couponsService.getAll(query);
+  }
+
+  @Get('my')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get my coupons' })
+  @ApiOkResponse({ description: 'Returns list of user coupons with pagination' })
+  getMyCoupons(@Req() req: Request, @Query() query: MyCouponsQueryDto) {
+    const { id } = req['user'];
+    return this.couponsService.getMyCoupons(id, query);
   }
 
   @Get(':id')

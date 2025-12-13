@@ -35,13 +35,13 @@ import { WishlistsModule } from './modules/wishlists/wishlists.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { PaymentsModule } from './modules/payments/payments.module';
-import path from 'path';
-import vnpayConfig from './configs/vnpay.config';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     UsersModule,
-    ConfigModule.forRoot({ isGlobal: true, load: [vnpayConfig] }),
+    ConfigModule.forRoot({ isGlobal: true }),
     //use module globally
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
@@ -68,7 +68,7 @@ import vnpayConfig from './configs/vnpay.config';
     WishlistsModule,
     NotificationsModule,
     ReviewsModule,
-    PaymentsModule,
+    PaymentsModule
   ],
   controllers: [AppController],
   providers: [
