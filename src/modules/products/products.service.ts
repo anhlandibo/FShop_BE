@@ -176,7 +176,6 @@ export class ProductsService {
     } = query;
     const queryBuilder = this.productRepository
       .createQueryBuilder('product')
-      .leftJoinAndSelect('product.variants', 'variant')
       .leftJoinAndSelect('product.variants', 'variant', 'variant.isActive = :isActive', { isActive: true })
       .leftJoinAndSelect('product.images', 'image')
       .leftJoinAndSelect('product.brand', 'brand')

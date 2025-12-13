@@ -139,6 +139,28 @@ export class OrdersService {
     return order;
   }
 
+  /**
+   * Ensures that the order belongs to the specified user.
+   * Throws HttpException if order not found or user is not the owner.
+   */
+  async ensureOrderOwnership(orderId: number, userId: number): Promise<void> {
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+      relations: ['user'],
+    });
+
+    if (!order) {
+      throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
+    }
+
+    if (order.user.id !== userId) {
+      throw new HttpException(
+        'Forbidden: You can only cancel your own orders',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+  }
+
   async getAll(query: OrderQueryDto) {
     const {
       page,
