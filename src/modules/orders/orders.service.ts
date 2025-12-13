@@ -1,11 +1,13 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import { HttpException, HttpStatus, Injectable, forwardRef, Inject } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Order, OrderItem } from './entities';
 import { DataSource, FindOptionsWhere, Like, Repository } from 'typeorm';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { User } from '../users/entities/user.entity';
 import { Cart, CartItem } from '../carts/entities';
-import { OrderStatus, Role } from 'src/constants';
+import { OrderStatus, Role, ShippingMethod } from 'src/constants';
 import { ProductVariant } from '../products/entities';
 import { Address } from '../address/entities/address.entity';
 import { ActorRole, ensureTransitionAllowed } from 'src/utils/order-status.rules';
@@ -13,6 +15,8 @@ import { NotificationsService } from 'src/modules/notifications/notifications.se
 import { NotificationsGateway } from 'src/modules/notifications/notifications.gateway';
 import { OrderQueryDto } from 'src/dto/orderQuery.dto';
 import { PaymentStatus } from 'src/constants/payment-status.enum';
+import { CouponsService } from '../coupons/coupons.service';
+import { CouponRedemption } from '../coupons/entities/coupon-redemption.entity';
 
 @Injectable()
 export class OrdersService {
@@ -22,27 +26,48 @@ export class OrdersService {
     private orderItemRepository: Repository<OrderItem>,
     @InjectRepository(ProductVariant)
     private readonly variantRepo: Repository<ProductVariant>,
+    @InjectRepository(CouponRedemption)
+    private readonly couponRedemptionRepo: Repository<CouponRedemption>,
     @InjectDataSource() private readonly dataSource: DataSource,
     private notiService: NotificationsService,
+    private couponsService: CouponsService,
   ) {}
+
+
+  private calculateShippingFee(shippingMethod: ShippingMethod): number {
+    switch (shippingMethod) {
+      case ShippingMethod.STANDARD:
+        return 10; 
+      case ShippingMethod.EXPRESS:
+        return 20; 
+      default:
+        return 30000;
+    }
+  }
 
   async create(userId: number, createOrderDto: CreateOrderDto) {
     return await this.dataSource.manager.transaction(async (manager) => {
-      const { addressId, note, items, paymentMethod } = createOrderDto;
+      const { addressId, note, items, paymentMethod, shippingMethod, couponCode } = createOrderDto;
+
+      // 1. Validate address
       const address = await manager.findOne(Address, {
         where: { user: { id: userId }, id: addressId },
       });
       if (!address)
         throw new HttpException('Address not found', HttpStatus.NOT_FOUND);
-      console.log(address);
+
+      // 2. Get cart with items
       const cart = await manager.findOne(Cart, {
         where: { user: { id: userId } },
         relations: ['items', 'items.variant', 'user', 'items.variant.product'],
       });
-
       if (!cart || cart.items.length == 0)
         throw new HttpException('Cart is empty', HttpStatus.NOT_FOUND);
 
+      // 3. Calculate shipping fee
+      const shippingFee = this.calculateShippingFee(shippingMethod);
+
+      // 4. Create order (without totalAmount first)
       const order = manager.create(Order, {
         user: cart.user,
         recipientName: address.recipientName,
@@ -55,29 +80,35 @@ export class OrdersService {
         note: note,
         paymentMethod,
         paymentStatus: PaymentStatus.PENDING,
+        shippingMethod,
+        shippingFee,
         totalAmount: 0,
+        discountAmount: 0,
+        ...(couponCode && { couponCode }),
       });
       await manager.save(order);
 
-      let totalAmount = 0;
+      // 5. Process order items and calculate subtotal
+      let subtotal = 0;
       for (const item of items) {
         const cartItem = cart.items.find(
           (cartItem) => cartItem.variant.id === item.variantId,
         );
         if (!cartItem)
           throw new HttpException('Cart item not found', HttpStatus.NOT_FOUND);
-        //Check tồn kho
+
+        // Check stock
         if (item.quantity > cartItem.variant.remaining)
           throw new HttpException(
-            'Not enough quantity',
+            `Not enough stock for ${cartItem.variant.product.name}`,
             HttpStatus.BAD_REQUEST,
           );
 
-        // Trừ tồn kho
+        // Reduce stock
         cartItem.variant.remaining -= item.quantity;
         await manager.save(ProductVariant, cartItem.variant);
 
-        // Tạo order item
+        // Create order item
         const orderItem = manager.create(OrderItem, {
           order,
           variant: cartItem.variant,
@@ -85,23 +116,44 @@ export class OrdersService {
           price: cartItem.variant.product.price,
         });
         await manager.save(orderItem);
-        totalAmount += item.quantity * orderItem.price;
+        subtotal += item.quantity * Number(orderItem.price);
 
-        // Cập nhật cart
-        if (item.quantity >= cartItem.quantity) await manager.remove(cartItem);
-        else {
+        // Update cart
+        if (item.quantity >= cartItem.quantity) {
+          await manager.remove(cartItem);
+        } else {
           cartItem.quantity -= item.quantity;
           await manager.save(CartItem, cartItem);
         }
       }
 
-      order.totalAmount = Math.round(totalAmount);
+      // 6. Apply coupon if provided
+      let discountAmount = 0;
+      if (couponCode) {
+        try {
+          const couponResult = await this.couponsService.apply(couponCode, order.id, userId);
+          discountAmount = Number(couponResult.discountAmount) || 0;
+        } catch (error: any) {
+          // If coupon application fails, rollback the transaction
+          throw new HttpException(
+            error?.message || 'Failed to apply coupon',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+      }
+
+      // 7. Calculate final total amount
+      order.discountAmount = discountAmount;
+      order.totalAmount = Math.max(0, Math.round(subtotal + shippingFee - discountAmount));
       await manager.save(order);
-      const notification = await this.notiService.create({
-        message: `Đơn hàng đã được đặt: ${order.status}`,
-        title: `Đặt đơn hàng #${order.id}`,
+
+      // 8. Create notification
+      await this.notiService.create({
+        message: `Order #${order.id} has been created`,
+        title: `Order #${order.id} has been created`,
         userId: order.user.id,
       });
+
       return order;
     });
   }
@@ -206,7 +258,7 @@ export class OrdersService {
     return this.dataSource.transaction(async (manager) => {
       const order = await manager.findOne(Order, {
         where: { id: orderId },
-        relations: ['items', 'items.variant'],
+        relations: ['items', 'items.variant', 'user'],
       });
       if (!order)
         throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
@@ -216,7 +268,10 @@ export class OrdersService {
       } catch (e) {
         throw new HttpException(String(e), HttpStatus.BAD_REQUEST);
       }
+
+      // Handle CANCELED status - restore stock and remove coupon redemption
       if (next === OrderStatus.CANCELED) {
+        // Restore stock
         for (const it of order.items) {
           const variant = await manager.findOne(ProductVariant, {
             where: { id: it.variant.id },
@@ -225,6 +280,37 @@ export class OrdersService {
             variant.remaining = Number(variant.remaining) + Number(it.quantity);
             await manager.save(variant);
           }
+        }
+
+        // Remove coupon redemption if not yet redeemed
+        if (order.couponCode) {
+          const redemption = await manager.findOne(CouponRedemption, {
+            where: {
+              order: { id: order.id },
+              isRedeemed: false,
+            },
+          });
+
+          if (redemption) {
+            await manager.remove(redemption);
+            console.log(`Removed unredeemed coupon ${order.couponCode} for canceled order #${order.id}`);
+          }
+        }
+      }
+
+      // Handle CONFIRMED status - redeem coupon
+      if (next === OrderStatus.CONFIRMED && order.couponCode) {
+        try {
+          await this.couponsService.redeem(
+            order.couponCode,
+            order.id,
+            order.user.id,
+          );
+          console.log(`Coupon ${order.couponCode} redeemed for order #${order.id}`);
+        } catch (error: any) {
+          console.error(`Failed to redeem coupon: ${error?.message}`);
+          // Don't rollback order confirmation if coupon redeem fails
+          // Just log the error
         }
       }
 
