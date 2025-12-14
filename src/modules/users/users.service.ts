@@ -18,10 +18,14 @@ export class UsersService {
     @InjectRedis() private readonly redis: Redis,
     private dataSource: DataSource,
     private readonly cloudinaryService: CloudinaryService,
-    private readonly cartService: CartsService
+    private readonly cartService: CartsService,
   ) {}
   async create(createUserDto: CreateUserDto, file?: Express.Multer.File) {
-    if (await this.usersRepository.findOne({where: { email: createUserDto.email }}))
+    if (
+      await this.usersRepository.findOne({
+        where: { email: createUserDto.email },
+      })
+    )
       throw new HttpException('Email exists', HttpStatus.CONFLICT);
     const password = await hashPassword(createUserDto.password);
 
@@ -48,9 +52,12 @@ export class UsersService {
     return this.dataSource.manager.transaction(async (manager) => {
       const users: User[] = [];
       for (const dto of createUsersDto) {
-        const existingUser = await manager.findOne(User, {where: {email: dto.email}});
-        if (existingUser) throw new HttpException('Email exists', HttpStatus.CONFLICT);
-          
+        const existingUser = await manager.findOne(User, {
+          where: { email: dto.email },
+        });
+        if (existingUser)
+          throw new HttpException('Email exists', HttpStatus.CONFLICT);
+
         const password = await hashPassword(dto.password);
         users.push(await manager.save(User, { ...dto, password }));
       }
@@ -58,27 +65,30 @@ export class UsersService {
     });
   }
 
-    async update(id: number, updateUserDto: UpdateUserDto, file?: Express.Multer.File) {
-      if (updateUserDto.email) {
-        const existingEmail = await this.usersRepository.findOne({where: { email: updateUserDto.email }});
-        if (existingEmail && existingEmail.id !== id) 
-          throw new HttpException('Email exists', HttpStatus.CONFLICT);
-      }
-      const existingUser = await this.usersRepository.findOne({where: { id }});
-      if (!existingUser) throw new HttpException('Not found user', HttpStatus.NOT_FOUND);
-      Object.assign(existingUser, updateUserDto); // merge
-      if (file) {
-        if (existingUser.publicId) {
-          await this.cloudinaryService
-            .deleteFile(existingUser.publicId)
-            .catch(() => null);
-        }
-        const uploaded = await this.cloudinaryService.uploadFile(file);
-        existingUser.avatar = uploaded?.secure_url;
-        existingUser.publicId = uploaded?.public_id;
-      }
-      return this.usersRepository.update(id, existingUser);
+  async update(id: number, updateUserDto: UpdateUserDto,file?: Express.Multer.File) {
+    if (updateUserDto.email) {
+      const existingEmail = await this.usersRepository.findOne({
+        where: { email: updateUserDto.email },
+      });
+      if (existingEmail && existingEmail.id !== id)
+        throw new HttpException('Email exists', HttpStatus.CONFLICT);
     }
+    const existingUser = await this.usersRepository.findOne({ where: { id } });
+    if (!existingUser)
+      throw new HttpException('Not found user', HttpStatus.NOT_FOUND);
+    Object.assign(existingUser, updateUserDto); // merge
+    if (file) {
+      if (existingUser.publicId) {
+        await this.cloudinaryService
+          .deleteFile(existingUser.publicId)
+          .catch(() => null);
+      }
+      const uploaded = await this.cloudinaryService.uploadFile(file);
+      existingUser.avatar = uploaded?.secure_url;
+      existingUser.publicId = uploaded?.public_id;
+    }
+    return this.usersRepository.update(id, existingUser);
+  }
 
   async findByEmail(email: string) {
     const user = await this.usersRepository.findOne({
@@ -125,7 +135,7 @@ export class UsersService {
   }
 
   async remove(id: number) {
-    const user = await this.usersRepository.findOne({where: { id }});
+    const user = await this.usersRepository.findOne({ where: { id } });
     if (!user) throw new HttpException('User not found', HttpStatus.NOT_FOUND);
     await this.usersRepository.remove(user);
     return {
@@ -138,11 +148,11 @@ export class UsersService {
     const { ids } = deleteUsersDto;
 
     return await this.dataSource.transaction(async (manager) => {
-      const users = await manager.find(User, {where: { id: In(ids) }});
+      const users = await manager.find(User, { where: { id: In(ids) } });
 
-      if (!users || users.length === 0) 
+      if (!users || users.length === 0)
         throw new HttpException('Not found any users', HttpStatus.NOT_FOUND);
-      
+
       await manager.remove(users);
 
       return { deletedIds: ids };

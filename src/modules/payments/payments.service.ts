@@ -8,6 +8,8 @@ import { PaypalSdkService } from './paypal-sdk.service';
 import { PaymentMethod } from 'src/constants/payment-method.enum';
 import { PaymentStatus } from 'src/constants/payment-status.enum';
 import { verify } from 'crypto';
+import { CouponsService } from '../coupons/coupons.service';
+import { OrderStatus } from 'src/constants';
 
 @Injectable()
 export class PaymentsService {
@@ -18,6 +20,7 @@ export class PaymentsService {
     private readonly orderRepo: Repository<Order>,
     private readonly paypalSdk: PaypalSdkService,
     private readonly dataSource: DataSource,
+    private readonly couponsService: CouponsService,
   ) {}
 
   async createPaypalPayment(
@@ -148,12 +151,31 @@ export class PaymentsService {
     const paypalStatus: string = captureRes.status;
     const isSuccess = paypalStatus === 'COMPLETED';
 
-    payment.status = isSuccess
-      ? PaymentStatus.COMPLETED
-      : PaymentStatus.FAILED;
+    payment.status = isSuccess ? PaymentStatus.COMPLETED : PaymentStatus.FAILED;
     payment.rawResponse = captureRes;
 
     await this.paymentRepo.save(payment);
+
+    if (isSuccess) {
+      payment.order.paymentStatus = PaymentStatus.COMPLETED;
+      payment.order.status = OrderStatus.CONFIRMED;
+
+
+      if (payment.order.couponCode) {
+        try {
+          await this.couponsService.redeem(
+            payment.order.couponCode,
+            payment.order.id,
+            payment.order.user.id,
+          );
+          console.log(`Auto-redeemed coupon ${payment.order.couponCode}`);
+        }
+        catch (err) {
+          console.error('Failed to auto-redeem coupon:', err.message);
+        }
+      }
+    }
+    else payment.order.paymentStatus = PaymentStatus.FAILED;
 
     payment.order.paymentStatus = payment.status;
     await this.orderRepo.save(payment.order);
@@ -166,7 +188,14 @@ export class PaymentsService {
     };
   }
 
-  async handleWebhook(event: any) {
+  async handleWebhook(event: any, headers: any) {
+    const isValid = await this.paypalSdk.verifyWebhookSignature(headers, event);
+    if (!isValid) {
+      console.error('Webhook Signature Verification Failed! Potential Hack attempt.');
+      throw new HttpException('Invalid Signature', HttpStatus.FORBIDDEN);
+    }
+
+
     // Chỉ quan tâm sự kiện Approved
     if (event.event_type === 'CHECKOUT.ORDER.APPROVED') {
       const resource = event.resource;
@@ -179,7 +208,7 @@ export class PaymentsService {
         // (Do cả Frontend và Webhook cùng gọi)
         const payment = await this.paymentRepo.findOne({
             where: { providerPaymentId: paypalOrderId },
-            relations: ['order']
+            relations: ['order', 'order.user']
         });
 
         if (payment && payment.status === PaymentStatus.COMPLETED) {

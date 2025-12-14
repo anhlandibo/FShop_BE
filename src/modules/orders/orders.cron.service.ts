@@ -6,6 +6,7 @@ import { Order } from './entities/order.entity';
 import { ProductVariant } from '../products/entities/product-variant.entity';
 import { OrderStatus } from 'src/constants';
 import { PaymentStatus } from 'src/constants/payment-status.enum';
+import { CouponRedemption } from '../coupons/entities/coupon-redemption.entity';
 
 @Injectable()
 export class OrdersCronService {
@@ -68,6 +69,13 @@ export class OrdersCronService {
             }
         }
       }
+      if (order.couponCode) {
+          await queryRunner.manager.delete(CouponRedemption, {
+            order: { id: order.id },
+            isRedeemed: false,
+          });
+          this.logger.debug(`-> Order #${order.id}: Released coupon ${order.couponCode}`);
+      }
 
       // 2. Cập nhật trạng thái đơn hàng
       order.status = OrderStatus.CANCELED;
@@ -75,7 +83,6 @@ export class OrdersCronService {
       order.note = `${order.note || ''} \n[System]: Auto-canceled due to payment timeout.`;
 
       await queryRunner.manager.save(Order, order);
-
       await queryRunner.commitTransaction();
       this.logger.log(`Successfully canceled Order #${order.id}`);
 

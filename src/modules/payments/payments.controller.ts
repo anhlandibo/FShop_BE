@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { Body, Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, Req, UseGuards, Headers } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation } from '@nestjs/swagger';
@@ -45,9 +45,9 @@ export class PaymentsController {
 
   @Post('paypal/webhook')
   @ApiOperation({ summary: 'Handle PayPal Webhook' })
-  handlePaypalWebhook(@Body() event: any) {
+  async handlePaypalWebhook(@Body() event: any, @Headers() headers: any) {
     console.log('Received Webhook Event:', event.event_type);
-    this.paymentsService.handleWebhook(event); 
+    await this.paymentsService.handleWebhook(event, headers); 
     return { status: 'received' };
   }
 }
