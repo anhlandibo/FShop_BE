@@ -295,13 +295,15 @@ export class CouponsService {
   }
 
   async getMyCoupons(userId: number, query: MyCouponsQueryDto) {
-    const { page, limit, search, sortBy = 'appliedAt', sortOrder = 'DESC', discountType } = query;
+    const { page, limit, search, sortBy = 'id', sortOrder = 'DESC', discountType } = query;
+    const now = new Date();
 
-    const queryBuilder = this.couponRedemptionRepository
-      .createQueryBuilder('redemption')
-      .leftJoinAndSelect('redemption.coupon', 'coupon')
-      .leftJoinAndSelect('redemption.order', 'order')
-      .where('redemption.userId = :userId', { userId });
+    // Lấy tất cả coupons đang active và chưa hết hạn
+    const queryBuilder = this.couponRepository
+      .createQueryBuilder('coupon')
+      .where('coupon.status = :status', { status: CouponStatus.ACTIVE })
+      .andWhere('coupon.endDate > :now', { now })
+      .andWhere('coupon.startDate <= :now', { now });
 
     // Filter by discount type
     if (discountType) {
@@ -317,31 +319,40 @@ export class CouponsService {
     }
 
     // Sorting
-    if (sortBy === 'appliedAt' || sortBy === 'redeemedAt') {
-      queryBuilder.orderBy(`redemption.${sortBy}`, sortOrder);
-    } else {
-      queryBuilder.orderBy(`coupon.${sortBy}`, sortOrder);
-    }
+    queryBuilder.orderBy(`coupon.${sortBy}`, sortOrder);
 
     // Pagination
     if (page && limit) {
       queryBuilder.skip((page - 1) * limit).take(limit);
     }
 
-    const [redemptions, total] = await queryBuilder.getManyAndCount();
+    const coupons = await queryBuilder.getMany();
 
-    const data = redemptions.map(redemption => ({
-      id: redemption.id,
-      coupon: redemption.coupon,
-      orderId: redemption.order?.id,
-      isRedeemed: redemption.isRedeemed,
-      appliedAt: redemption.appliedAt,
-      redeemedAt: redemption.redeemedAt,
-    }));
+    // Với mỗi coupon, kiểm tra xem user đã dùng bao nhiêu lần
+    const data: any[] = [];
+    for (const coupon of coupons) {
+      const usedCount = await this.couponRedemptionRepository.count({
+        where: {
+          coupon: { id: coupon.id },
+          user: { id: userId },
+          isRedeemed: true,
+        },
+      });
+      
+      const canUse = !coupon.usageLimitPerUser || usedCount < coupon.usageLimitPerUser;
+
+      if (canUse) {
+        data.push({
+          ...coupon,
+          usedCount,
+          remainingUses: coupon.usageLimitPerUser ? coupon.usageLimitPerUser - usedCount : null,
+        });
+      }
+    }
 
     return {
       pagination: {
-        total,
+        total: data.length,
         page,
         limit,
       },

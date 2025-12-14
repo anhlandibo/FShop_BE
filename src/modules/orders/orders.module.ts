@@ -10,11 +10,17 @@ import { Address } from '../address/entities/address.entity';
 import { NotificationsModule } from 'src/modules/notifications/notifications.module';
 import { Payment } from '../payments/entities/payment.entity';
 import { OrdersCronService } from './orders.cron.service';
+import { CouponsModule } from '../coupons/coupons.module';
+import { CouponRedemption } from '../coupons/entities/coupon-redemption.entity';
 
 @Module({
   controllers: [OrdersController],
   providers: [OrdersService, OrdersCronService],
-  imports: [TypeOrmModule.forFeature([Order, OrderItem, Address, ProductVariant, Cart, CartItem, Payment]), NotificationsModule],
+  imports: [
+    TypeOrmModule.forFeature([Order, OrderItem, Address, ProductVariant, Cart, CartItem, Payment, CouponRedemption]),
+    NotificationsModule,
+    CouponsModule,
+  ],
   exports: [OrdersService],
 })
 export class OrdersModule { }

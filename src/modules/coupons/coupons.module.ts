@@ -11,6 +11,7 @@ import { Cart } from '../carts/entities';
 @Module({
   controllers: [CouponsController],
   providers: [CouponsService],
-  imports: [TypeOrmModule.forFeature([Coupon, CouponTarget, CouponRedemption, ProductVariant, Cart])]
+  imports: [TypeOrmModule.forFeature([Coupon, CouponTarget, CouponRedemption, ProductVariant, Cart])],
+  exports: [CouponsService],
 })
 export class CouponsModule {}

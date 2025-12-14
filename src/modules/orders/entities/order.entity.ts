@@ -1,5 +1,5 @@
 import { Exclude } from "class-transformer";
-import { OrderStatus } from "src/constants";
+import { OrderStatus, ShippingMethod } from "src/constants";
 import { User } from "src/modules/users/entities/user.entity";
 import { Column, CreateDateColumn, Entity, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { OrderItem } from ".";
@@ -53,6 +53,22 @@ export class Order {
     default: PaymentStatus.PENDING,
   })
   paymentStatus: PaymentStatus;
+
+  @Column({
+    type: 'enum',
+    enum: ShippingMethod,
+    default: ShippingMethod.STANDARD,
+  })
+  shippingMethod: ShippingMethod;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  shippingFee: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  discountAmount: number;
+
+  @Column({ nullable: true })
+  couponCode: string;
 
   @ManyToOne(() => User, (user) => user.orders)
   @Exclude()
