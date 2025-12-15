@@ -95,5 +95,13 @@ export class OrdersController {
     return this.ordersService.updateStatus(id, dto.status, actor);
   }
 
-  
+  // USER CONFIRM DELIVERY
+  @UseGuards(AuthGuard('jwt'))
+  @Post(':orderId/confirm-delivery')
+  @ApiOperation({ summary: 'User confirms receipt of goods' })
+  @ApiBearerAuth()
+  confirmDelivery(@Req() req: Request, @Param('orderId', ParseIntPipe) orderId: number) {
+    const {id} = req['user'];
+    return this.ordersService.userConfirmDelivery(orderId, id);
+  }
 }

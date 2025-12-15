@@ -4,14 +4,12 @@ import { InjectRedis } from '@nestjs-modules/ioredis';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import Redis from 'ioredis';
-import { Repository, DataSource, Like } from 'typeorm';
+import { Repository, DataSource, Like, In } from 'typeorm';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { Product } from './entities/product.entity';
 import { ProductVariant } from './entities/product-variant.entity';
 import { ProductImage } from './entities/product-image.entity';
-import { QueryDto } from 'src/dto/query.dto';
-import { hashKey } from 'src/utils/hash';
 import { Brand } from '../brands/entities/brand.entity';
 import { Category } from '../categories/entities/category.entity';
 import { plainToInstance } from 'class-transformer';
@@ -19,6 +17,9 @@ import { VariantAttributeValue } from './entities/variant-attribute-value.entity
 import { AttributeCategory } from '../attributes/entities/attribute-category.entity';
 import { ProductQueryDto } from 'src/dto/productQuery.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
+import * as FormData from 'form-data';
 
 @Injectable()
 export class ProductsService {
@@ -34,6 +35,7 @@ export class ProductsService {
     @InjectRedis() private readonly redis: Redis,
     private dataSource: DataSource,
     private readonly cloudinaryService: CloudinaryService,
+    private readonly httpService: HttpService
   ) {}
 
   async create(
@@ -417,9 +419,51 @@ export class ProductsService {
       return this.getProductById(product.id);
     });
   }
+
+  async searchByImage(file: Express.Multer.File) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file.buffer, file.originalname);
+
+      const url = 'http://localhost:8000/search/image';
+
+      const { data: aiResults } = await firstValueFrom(
+        this.httpService.post(url, formData, {headers: {...formData.getHeaders()}})
+      );
+
+      if (!aiResults || aiResults.length === 0) return [];
+
+      const productIds = aiResults.map((item: any) => item.product_id);
+      
+      const products = await this.productRepository.find({
+        where: { 
+          id: In(productIds),
+          isActive: true 
+        },
+        relations: ['brand', 'category', 'images'], 
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          description: true,
+          brand: { id: true, name: true },
+          category: { id: true, name: true },
+          images: { id: true, imageUrl: true },
+        }
+      });
+
+      const sortedProducts = productIds
+        .map(id => products.find(p => p.id === id))
+        .filter(p => p !== undefined);
+
+      return sortedProducts;
+    }
+    catch (error) {
+      console.error('AI Service Error:', error.message);
+      throw new HttpException('Image search service unavailable', HttpStatus.SERVICE_UNAVAILABLE);
+    }
+  }
 }
 
-function In(attributeCategoryIds: number[] | undefined): number | import("typeorm").FindOperator<number> | undefined {
-  throw new Error('Function not implemented.');
-}
+
 

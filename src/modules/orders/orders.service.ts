@@ -170,12 +170,17 @@ export class OrdersService {
       await manager.save(order);
 
       // 8. Create notification
-      console.log(user.id)
-      await this.notiService.create({
-        message: `Order #${order.id} has been created`,
-        title: `Order #${order.id} has been created`,
-        userId: user.id,
-      });
+      this.notiService.sendNotification(
+          userId, 
+          'Place order successfully! 🎉', 
+          `Order #${order.id} is pending.`
+      ).catch(console.error);
+
+      this.notiService.sendToAdmin(
+          'New Order 📦',
+          `User #${userId} has placed a new order #${order.id}`,
+          'NEW_ORDER'
+      ).catch(console.error);
 
       return order;
     });
@@ -340,7 +345,75 @@ export class OrdersService {
       const prev = order.status;
       order.status = next;
       await manager.save(order);
+
+      if (prev !== next && order.user) {
+         let title = `Update order #${orderId}`;
+         let message = `Order status: ${next} status`;
+
+         switch (next) {
+              case OrderStatus.CONFIRMED:
+                  message = `Order #${order.id} has been confirmed and is now being processed.`;
+                  break;
+              case OrderStatus.SHIPPED:
+                  message = `Shipper is now processing your order #${order.id}.`;
+                  break;
+              case OrderStatus.CANCELED:
+                  title = `Order #${orderId} has been canceled`;
+                  message = `Reason: ${actor.reason || 'None'}`;
+                  break;
+              case OrderStatus.DELIVERED:
+                  title = `Order #${orderId} has been delivered`;
+                  message = `Order #${order.id} has been successfully delivered. Enjoy your purchase!`;
+                  break;
+          }
+
+          // Gửi thông báo cho User
+          this.notiService.sendNotification(order.user.id, title, message).catch(console.error);
+      }
+
       return { message: 'Order status updated', from: prev, to: next };
+    });
+  }
+
+  async userConfirmDelivery(orderId: number, userId: number) {
+    return this.dataSource.transaction(async (manager) => {
+      const order = await manager.findOne(Order, {
+        where: { id: orderId },
+        relations: ['user'],
+      });
+
+      if (!order) throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
+      if (order.user.id !== userId) throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
+      
+      // Chỉ cho phép confirm khi đang giao hàng
+      if (order.status !== OrderStatus.SHIPPED) {
+         throw new HttpException('Order must be in SHIPPING status to confirm', HttpStatus.BAD_REQUEST);
+      }
+
+      // Update trạng thái
+      order.status = OrderStatus.DELIVERED;
+      // Nếu là COD thì khi nhận hàng xong coi như đã thanh toán
+      if (order.paymentStatus === PaymentStatus.PENDING) {
+          order.paymentStatus = PaymentStatus.COMPLETED;
+      }
+      order.updatedAt = new Date();
+      await manager.save(order);
+
+      // 1. Báo Admin
+      this.notiService.sendToAdmin(
+          'User confirmed delivery',
+          `User ${order.user.fullName} has confirmed delivery of order #${order.id}`,
+          'ORDER_COMPLETED'
+      ).catch(console.error);
+
+      // 2. Cảm ơn User
+      this.notiService.sendNotification(
+          userId,
+          'Thanks for shopping with us! 🎉',
+          `Order #${order.id} has been delivered.`
+      ).catch(console.error);
+
+      return { success: true, status: OrderStatus.DELIVERED };
     });
   }
 }
