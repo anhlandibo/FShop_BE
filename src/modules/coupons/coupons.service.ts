@@ -9,12 +9,11 @@ import { Coupon } from './entities/coupon.entity';
 import { CreateCouponDto } from './dto/create-coupon.dto';
 import { QueryDto } from 'src/dto/query.dto';
 import { UpdateCouponDto } from './dto/update-coupon.dto';
-import { ValidateCouponDto } from './dto/validate-coupon.dto';
 import { CouponStatus, DiscountType, TargetType } from 'src/constants';
 import { ProductVariant } from '../products/entities';
 import { Cart } from '../carts/entities';
-import { User } from '../users/entities/user.entity';
 import { MyCouponsQueryDto } from './dto/my-coupons-query.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class CouponsService {
@@ -30,6 +29,7 @@ export class CouponsService {
     @InjectRepository(Cart)
     private readonly cartRepository: Repository<Cart>,
     @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly notiService: NotificationsService
   ) {}
 
   async create(createCouponDto: CreateCouponDto) {
@@ -54,6 +54,37 @@ export class CouponsService {
         await manager.save(targets);
         savedCoupon.targets = targets;
       }
+
+      let isSiteWide = true; // Cờ kiểm tra xem có phải sale toàn sàn
+
+      if (createCouponDto.targets && createCouponDto.targets.length > 0) {
+        if (!createCouponDto.targets.some(t => t.targetType === TargetType.ALL)) {
+            isSiteWide = false;
+        }
+
+        const targets = createCouponDto.targets.map((target) =>
+          manager.create(CouponTarget, { ...target, coupon: savedCoupon }),
+        );
+        await manager.save(targets);
+        savedCoupon.targets = targets;
+      }
+
+      
+      let title = 'Coupon Code Released!';
+      let message = `Apply CODE "${savedCoupon.code}" to get discount ${savedCoupon.name || ''}.`;
+
+      if (isSiteWide) {
+          title = 'Super Sale For ALL!';
+          message = `Big Deal! CODE "${savedCoupon.code}" is now available for all products.`;
+      } else {
+          title = 'Sale For Selected!';
+          message = `CODE "${savedCoupon.code}" is now available for selected products.`;
+      }
+
+      // Gửi Broadcast (Socket + DB)
+      this.notiService.sendToAll(title, message).catch(err => {
+          console.error('Failed to broadcast coupon notification:', err);
+      });
 
       return savedCoupon;
     });

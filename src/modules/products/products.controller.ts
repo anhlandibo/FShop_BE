@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UploadedFiles, UseInterceptors, UsePipes, ValidationPipe } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, UploadedFile, UploadedFiles, UseInterceptors, UsePipes, ValidationPipe } from '@nestjs/common';
 import { ProductsService } from './products.service';
-import { FileFieldsInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor, FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { CreateProductDto } from './dto/create-product.dto';
 import { QueryDto } from 'src/dto/query.dto';
 import { plainToClass } from 'class-transformer';
@@ -70,5 +70,15 @@ export class ProductsController {
       files.variantImages || [],
       files.productImages || []
     );
+  }
+
+  @Post('search/image') 
+  @ApiOperation({ summary: 'Search products by image using AI' })
+  @UseInterceptors(FileInterceptor('image')) 
+  searchByImage(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('Image file is required');
+    }
+    return this.productsService.searchByImage(file);
   }
 }

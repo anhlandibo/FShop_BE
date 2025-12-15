@@ -7,6 +7,7 @@ import { ProductVariant } from '../products/entities/product-variant.entity';
 import { OrderStatus } from 'src/constants';
 import { PaymentStatus } from 'src/constants/payment-status.enum';
 import { CouponRedemption } from '../coupons/entities/coupon-redemption.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class OrdersCronService {
@@ -16,6 +17,7 @@ export class OrdersCronService {
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
     private readonly dataSource: DataSource,
+    private readonly notiService: NotificationsService
   ) {}
 
   @Cron(CronExpression.EVERY_10_MINUTES)
@@ -32,7 +34,7 @@ export class OrdersCronService {
         paymentStatus: PaymentStatus.PENDING, 
         createdAt: LessThan(timeLimit),    
       },
-      relations: ['items', 'items.variant'], 
+      relations: ['items', 'items.variant', 'user'], 
     });
 
     if (staleOrders.length === 0) return;
@@ -85,6 +87,14 @@ export class OrdersCronService {
       await queryRunner.manager.save(Order, order);
       await queryRunner.commitTransaction();
       this.logger.log(`Successfully canceled Order #${order.id}`);
+
+      if (order.user) {
+         this.notiService.sendNotification(
+             order.user.id,
+             'Order has been automatically canceled',
+             `Order #${order.id} has been automatically canceled due to payment timeout.`
+         ).catch(err => this.logger.error('Failed to send cron notification', err));
+     }
 
     } catch (err) {
       this.logger.error(`Failed to cancel Order #${order.id}`, err);
