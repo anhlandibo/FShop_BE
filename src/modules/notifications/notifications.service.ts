@@ -5,6 +5,7 @@ import { Notification } from 'src/modules/notifications/entities/notification.en
 import { Repository } from 'typeorm';
 import { User } from 'src/modules/users/entities/user.entity';
 import { NotificationsGateway } from 'src/modules/notifications/notifications.gateway';
+import { QueryNotificationDto } from './dto/query-notification.dto';
 
 @Injectable()
 export class NotificationsService {
@@ -38,4 +39,34 @@ export class NotificationsService {
       throw new HttpException("Not found user", HttpStatus.NOT_FOUND);
     return this.notificationRepository.update({ user: { id: userId } }, { isRead: true })
   }
+
+  async getMyNotifications(userId: number, query: QueryNotificationDto) {
+  const {
+    page = 1,
+    limit = 10,
+    sortBy = 'createdAt',
+    sortOrder = 'DESC',
+  } = query;
+
+  const [data, total] = await this.notificationRepository.findAndCount({
+    where: { user: { id: userId } },
+    order: {
+      [sortBy]: sortOrder,
+      isRead: 'ASC', // unread luôn ưu tiên
+    },
+    skip: (page - 1) * limit,
+    take: limit,
+  });
+
+  return {
+    data,
+    meta: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+
 }
