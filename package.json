@@ -22,6 +22,7 @@
   "dependencies": {
     "@faker-js/faker": "^10.0.0",
     "@nestjs-modules/ioredis": "^2.0.2",
+    "@nestjs-modules/mailer": "^2.0.2",
     "@nestjs/axios": "^4.0.1",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
@@ -44,6 +45,7 @@
     "crypto": "^1.0.1",
     "ioredis": "^5.7.0",
     "moment": "^2.30.1",
+    "nodemailer": "^7.0.11",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-jwt": "^4.0.1",
@@ -54,7 +56,8 @@
     "rxjs": "^7.8.1",
     "streamifier": "^0.1.1",
     "typeorm": "^0.3.26",
-    "typeorm-extension": "^3.7.1"
+    "typeorm-extension": "^3.7.1",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -71,9 +74,11 @@
     "@types/jest": "^29.5.14",
     "@types/multer": "^2.0.0",
     "@types/node": "^22.10.7",
+    "@types/nodemailer": "^7.0.4",
     "@types/passport-local": "^1.0.38",
     "@types/streamifier": "^0.1.2",
     "@types/supertest": "^6.0.2",
+    "@types/uuid": "^10.0.0",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",
