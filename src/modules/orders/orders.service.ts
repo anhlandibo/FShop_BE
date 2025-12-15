@@ -170,10 +170,11 @@ export class OrdersService {
       await manager.save(order);
 
       // 8. Create notification
+      console.log(user.id)
       await this.notiService.create({
         message: `Order #${order.id} has been created`,
         title: `Order #${order.id} has been created`,
-        userId: order.user.id,
+        userId: user.id,
       });
 
       return order;

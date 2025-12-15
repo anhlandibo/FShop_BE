@@ -10,63 +10,88 @@ import { QueryNotificationDto } from './dto/query-notification.dto';
 @Injectable()
 export class NotificationsService {
   constructor(
-    @InjectRepository(Notification) private notificationRepository: Repository<Notification>,
+    @InjectRepository(Notification)
+    private notificationRepository: Repository<Notification>,
     @InjectRepository(User) private userRepository: Repository<User>,
     private notiGateway: NotificationsGateway,
-  ) { }
+  ) {}
   async create(createNotificationDto: CreateNotificationDto) {
     const { userId } = createNotificationDto;
-    if (!await this.userRepository.findBy({ id: userId }))
-      throw new HttpException("Not found user", HttpStatus.NOT_FOUND);
-    const notification = this.notificationRepository.create(createNotificationDto)
-    await this.notificationRepository.save(notification)
+    console.log('Creating notification for userId:', userId);
+    if (!(await this.userRepository.findBy({ id: userId })))
+      throw new HttpException('Not found user', HttpStatus.NOT_FOUND);
+    const notification = this.notificationRepository.create({
+      ...createNotificationDto,
+      user: { id: userId },
+    });
+
+    await this.notificationRepository.save(notification);
     this.notiGateway.sendToUser(userId, notification);
     return notification;
   }
 
   async findByUser(userId: number) {
-    if (!await this.userRepository.findBy({ id: userId }))
-      throw new HttpException("Not found user", HttpStatus.NOT_FOUND);
+    if (!(await this.userRepository.findBy({ id: userId })))
+      throw new HttpException('Not found user', HttpStatus.NOT_FOUND);
     return this.notificationRepository.find({
       where: {
-        user: { id: userId }
-      }
-    })
+        user: { id: userId },
+      },
+    });
   }
 
   async markAsRead(userId: number) {
-    if (!await this.userRepository.findBy({ id: userId }))
-      throw new HttpException("Not found user", HttpStatus.NOT_FOUND);
-    return this.notificationRepository.update({ user: { id: userId } }, { isRead: true })
+    if (!(await this.userRepository.findBy({ id: userId })))
+      throw new HttpException('Not found user', HttpStatus.NOT_FOUND);
+    return this.notificationRepository.update(
+      { user: { id: userId } },
+      { isRead: true },
+    );
+  }
+
+  async markOneAsRead(notificationId: number, userId: number) {
+    const notification = await this.notificationRepository.findOne({
+      where: {
+        id: notificationId,
+        user: { id: userId },
+      },
+    });
+
+    if (!notification) throw new HttpException('Notification not found', HttpStatus.NOT_FOUND);
+    
+
+    if (notification.isRead) return notification; 
+
+    notification.isRead = true;
+    return this.notificationRepository.save(notification);
   }
 
   async getMyNotifications(userId: number, query: QueryNotificationDto) {
-  const {
-    page = 1,
-    limit = 10,
-    sortBy = 'createdAt',
-    sortOrder = 'DESC',
-  } = query;
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'DESC',
+    } = query;
 
-  const [data, total] = await this.notificationRepository.findAndCount({
-    where: { user: { id: userId } },
-    order: {
-      [sortBy]: sortOrder,
-      isRead: 'ASC', // unread luôn ưu tiên
-    },
-    skip: (page - 1) * limit,
-    take: limit,
-  });
+    const [data, total] = await this.notificationRepository.findAndCount({
+      where: { user: { id: userId } },
+      order: {
+        [sortBy]: sortOrder,
+        isRead: 'ASC', // unread luôn ưu tiên
+      },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
 
-  return {
-    data,
-    meta: {
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    },
-  };
-}
-
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
 }

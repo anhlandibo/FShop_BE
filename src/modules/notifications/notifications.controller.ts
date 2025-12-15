@@ -13,9 +13,20 @@ export class NotificationsController {
     return this.notificationsService.findByUser(userId);
   }
 
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({ summary: 'Mark all my notifications as read' })
+  @Patch('/read-all')
+  markAsRead(@Req() req: Request) {
+    const { id } = req['user'];
+    return this.notificationsService.markAsRead(id);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({ summary: 'Mark one notification as read' })
   @Patch(':id/read')
-  markAsRead(@Param('id') userId: number) {
-    return this.notificationsService.markAsRead(userId);
+  markOneAsRead(@Req() req: Request, @Param('id') id: number) {
+    const { id: userId } = req['user'];
+    return this.notificationsService.markOneAsRead(id, userId);
   }
 
   @UseGuards(AuthGuard('jwt'))
@@ -25,7 +36,7 @@ export class NotificationsController {
     @Req() req: Request,
     @Query() query: QueryNotificationDto,
   ) {
-    const {id} = req['user'];
+    const { id } = req['user'];
     return this.notificationsService.getMyNotifications(id, query);
   }
 }
