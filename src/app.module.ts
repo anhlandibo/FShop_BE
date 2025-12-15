@@ -36,6 +36,8 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { MailerModule } from '@nestjs-modules/mailer';
+import { getMailConfig } from './configs/mail.config';
 
 @Module({
   imports: [
@@ -51,6 +53,10 @@ import { ScheduleModule } from '@nestjs/schedule';
     RedisModule.forRootAsync({
       inject: [ConfigService],
       useFactory: getRedisConfig,
+    }),
+    MailerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: getMailConfig
     }),
     //config postgres
     AuthModule,

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/restrict-template-expressions */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { DataSource, In, Like, Repository } from 'typeorm';
@@ -10,7 +11,10 @@ import { InjectRedis } from '@nestjs-modules/ioredis';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { CartsService } from '../carts/carts.service';
 import { CreateUserDto, UpdateUserDto, DeleteUsersDto } from './dto';
-
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { MailerService } from '@nestjs-modules/mailer';
+import { Role } from 'src/constants';
+import { v4 as uuidv4 } from 'uuid';
 @Injectable()
 export class UsersService {
   constructor(
@@ -19,6 +23,7 @@ export class UsersService {
     private dataSource: DataSource,
     private readonly cloudinaryService: CloudinaryService,
     private readonly cartService: CartsService,
+    private readonly mailerService: MailerService,
   ) {}
   async create(createUserDto: CreateUserDto, file?: Express.Multer.File) {
     if (
@@ -158,4 +163,101 @@ export class UsersService {
       return { deletedIds: ids };
     });
   }
+
+  async updateProfile(id: number, updateProfileDto: UpdateProfileDto, file?: Express.Multer.File) {
+    // 1. Tìm user hiện tại
+    const user = await this.usersRepository.findOne({ where: { id } });
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+
+    // 2. Cập nhật Avatar nếu có file gửi lên
+    if (file) {
+      if (user.publicId) {
+        await this.cloudinaryService
+          .deleteFile(user.publicId)
+          .catch((err) => console.log('Delete old avatar error:', err));
+      }
+
+      // Upload avatar mới
+      const uploaded = await this.cloudinaryService.uploadFile(file);
+      user.avatar = uploaded?.secure_url;
+      user.publicId = uploaded?.public_id;
+    }
+
+    // 3. Cập nhật FullName nếu có gửi lên
+    if (updateProfileDto.fullName) {
+      user.fullName = updateProfileDto.fullName;
+    }
+
+    // 4. Lưu vào DB
+    return this.usersRepository.save(user);
+  }
+
+  async register(createUserDto: CreateUserDto) {
+    const { email, password, fullName } = createUserDto;
+
+    // Check email tồn tại
+    const existingUser = await this.usersRepository.findOne({ where: { email } });
+    if (existingUser) throw new HttpException('Email already exists', HttpStatus.CONFLICT);
+    
+    // Hash pass
+    const hashedPassword = await hashPassword(password);
+
+    const newUser = this.usersRepository.create({
+      email,
+      password: hashedPassword,
+      fullName,
+      isVerified: false, 
+      role: Role.User, 
+    });
+
+    const savedUser = await this.usersRepository.save(newUser);
+    await this.cartService.create({ userId: savedUser.id }); 
+
+    // Tạo token verify (Random UUID)
+    const token = uuidv4();
+    
+    // Lưu token vào Redis: key="verify_user:token", value=userId, hết hạn sau 15 phút (900s)
+    await this.redis.set(`verify_user:${token}`, savedUser.id, 'EX', 900);
+
+    // Gửi email (Nên dùng Queue nếu muốn tối ưu, nhưng làm trực tiếp cho đơn giản trước)
+    const verificationLink = `http://localhost:4000/api/v1/users/verify?token=${token}`; // Link Frontend
+    
+    await this.mailerService.sendMail({
+      to: email,
+      subject: 'Welcome to FShop! Verify your email',
+      html: `
+        <h1>Welcome ${fullName}!</h1>
+        <p>Please click the link below to verify your account:</p>
+        <a href="${verificationLink}">Verify Email</a>
+        <p>This link expires in 15 minutes.</p>
+      `,
+    }).catch(err => console.log('Send mail error:', err));
+
+    return {
+      message: 'Registration successful. Please check your email to verify.',
+      userId: savedUser.id,
+    };
+  }
+
+  // 2. Logic Verify
+  async verifyEmail(token: string) {
+    // Lấy userId từ Redis dựa vào token
+    const userId = await this.redis.get(`verify_user:${token}`);
+    
+    if (!userId) {
+      throw new HttpException('Invalid or expired verification token', HttpStatus.BAD_REQUEST);
+    }
+
+    // Update user trong DB
+    await this.usersRepository.update(userId, { isVerified: true });
+
+    // Xóa token trong Redis để không dùng lại được nữa
+    await this.redis.del(`verify_user:${token}`);
+
+    return { message: 'Email verified successfully. You can now login.' };
+  }
 }
+
+
