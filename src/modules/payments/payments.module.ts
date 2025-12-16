@@ -6,9 +6,10 @@ import { Order } from '../orders/entities';
 import { Payment } from './entities/payment.entity';
 import { HttpModule } from '@nestjs/axios';
 import { PaypalSdkService } from './paypal-sdk.service';
+import { CouponsModule } from '../coupons/coupons.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Payment, Order]), HttpModule],
+  imports: [TypeOrmModule.forFeature([Payment, Order]), HttpModule, CouponsModule],
   controllers: [PaymentsController],
   providers: [PaymentsService, PaypalSdkService],
   exports: [PaymentsService],

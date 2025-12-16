@@ -70,21 +70,22 @@ export class OrdersService {
       });
       if (!address)
         throw new HttpException('Address not found', HttpStatus.NOT_FOUND);
+      const user = await manager.findOne(User, { where: { id: userId } });
+      if (!user) throw new HttpException('User not found', HttpStatus.NOT_FOUND);
 
       // 2. Get cart with items
       const cart = await manager.findOne(Cart, {
         where: { user: { id: userId } },
         relations: ['items', 'items.variant', 'user', 'items.variant.product'],
       });
-      if (!cart || cart.items.length == 0)
-        throw new HttpException('Cart is empty', HttpStatus.NOT_FOUND);
+      
 
       // 3. Calculate shipping fee
       const shippingFee = this.calculateShippingFee(shippingMethod);
 
       // 4. Create order (without totalAmount first)
       const order = manager.create(Order, {
-        user: cart.user,
+        user: user,
         recipientName: address.recipientName,
         recipientPhone: address.recipientPhone,
         detailAddress: address.detailAddress,
@@ -105,40 +106,61 @@ export class OrdersService {
 
       // 5. Process order items and calculate subtotal
       let subtotal = 0;
-      for (const item of items) {
-        const cartItem = cart.items.find(
-          (cartItem) => cartItem.variant.id === item.variantId,
-        );
-        if (!cartItem)
-          throw new HttpException('Cart item not found', HttpStatus.NOT_FOUND);
+      for (const itemDto of items) {
+        // A. Lấy thông tin Variant trực tiếp từ DB (Source of Truth)
+        // Thay vì tìm trong cart, ta tìm trong bảng ProductVariant
+        const variant = await manager.findOne(ProductVariant, {
+          where: { id: itemDto.variantId },
+          relations: ['product'],
+        });
 
-        // Check stock
-        if (item.quantity > cartItem.variant.remaining)
+        if (!variant) {
           throw new HttpException(
-            `Not enough stock for ${cartItem.variant.product.name}`,
+            `Variant ID ${itemDto.variantId} not found`,
+            HttpStatus.NOT_FOUND,
+          );
+        }
+
+        // B. Check stock
+        if (itemDto.quantity > variant.remaining)
+          throw new HttpException(
+            `Not enough stock for ${variant.product.name}`,
             HttpStatus.BAD_REQUEST,
           );
 
-        // Reduce stock
-        cartItem.variant.remaining -= item.quantity;
-        await manager.save(ProductVariant, cartItem.variant);
+        // C. Reduce stock
+        variant.remaining -= itemDto.quantity;
+        await manager.save(ProductVariant, variant);
 
-        // Create order item
+        // D. Create order item
         const orderItem = manager.create(OrderItem, {
           order,
-          variant: cartItem.variant,
-          quantity: item.quantity,
-          price: cartItem.variant.product.price,
+          variant: variant,
+          quantity: itemDto.quantity,
+          price: variant.product.price, // Lấy giá hiện tại từ DB
         });
         await manager.save(orderItem);
-        subtotal += item.quantity * Number(orderItem.price);
 
-        // Update cart
-        if (item.quantity >= cartItem.quantity) {
-          await manager.remove(cartItem);
-        } else {
-          cartItem.quantity -= item.quantity;
-          await manager.save(CartItem, cartItem);
+        subtotal += itemDto.quantity * Number(orderItem.price);
+
+        // E. CART CLEANUP (Logic quan trọng để hỗ trợ cả Mua ngay & Giỏ hàng)
+        // Kiểm tra xem item này có trong giỏ hàng của user không.
+        // Nếu có thì xóa hoặc trừ số lượng đi. Nếu không có (mua ngay/mua lại) thì bỏ qua.
+        if (cart && cart.items.length > 0) {
+          const cartItem = cart.items.find(
+            (ci) => ci.variant.id === variant.id,
+          );
+
+          if (cartItem) {
+            // Nếu số lượng mua >= số lượng trong cart -> Xóa khỏi cart
+            if (itemDto.quantity >= cartItem.quantity) {
+              await manager.remove(cartItem);
+            } else {
+              // Nếu số lượng mua ít hơn trong cart -> Trừ bớt
+              cartItem.quantity -= itemDto.quantity;
+              await manager.save(CartItem, cartItem);
+            }
+          }
         }
       }
 
@@ -170,11 +192,17 @@ export class OrdersService {
       await manager.save(order);
 
       // 8. Create notification
-      await this.notiService.create({
-        message: `Order #${order.id} has been created`,
-        title: `Order #${order.id} has been created`,
-        userId: order.user.id,
-      });
+      this.notiService.sendNotification(
+          userId, 
+          'Place order successfully! 🎉', 
+          `Order #${order.id} is pending.`
+      ).catch(console.error);
+
+      this.notiService.sendToAdmin(
+          'New Order 📦',
+          `User #${userId} has placed a new order #${order.id}`,
+          'NEW_ORDER'
+      ).catch(console.error);
 
       return order;
     });
@@ -350,7 +378,75 @@ export class OrdersService {
       const prev = order.status;
       order.status = next;
       await manager.save(order);
+
+      if (prev !== next && order.user) {
+         let title = `Update order #${orderId}`;
+         let message = `Order status: ${next} status`;
+
+         switch (next) {
+              case OrderStatus.CONFIRMED:
+                  message = `Order #${order.id} has been confirmed and is now being processed.`;
+                  break;
+              case OrderStatus.SHIPPED:
+                  message = `Shipper is now processing your order #${order.id}.`;
+                  break;
+              case OrderStatus.CANCELED:
+                  title = `Order #${orderId} has been canceled`;
+                  message = `Reason: ${actor.reason || 'None'}`;
+                  break;
+              case OrderStatus.DELIVERED:
+                  title = `Order #${orderId} has been delivered`;
+                  message = `Order #${order.id} has been successfully delivered. Enjoy your purchase!`;
+                  break;
+          }
+
+          // Gửi thông báo cho User
+          this.notiService.sendNotification(order.user.id, title, message).catch(console.error);
+      }
+
       return { message: 'Order status updated', from: prev, to: next };
+    });
+  }
+
+  async userConfirmDelivery(orderId: number, userId: number) {
+    return this.dataSource.transaction(async (manager) => {
+      const order = await manager.findOne(Order, {
+        where: { id: orderId },
+        relations: ['user'],
+      });
+
+      if (!order) throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
+      if (order.user.id !== userId) throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
+      
+      // Chỉ cho phép confirm khi đang giao hàng
+      if (order.status !== OrderStatus.SHIPPED) {
+         throw new HttpException('Order must be in SHIPPING status to confirm', HttpStatus.BAD_REQUEST);
+      }
+
+      // Update trạng thái
+      order.status = OrderStatus.DELIVERED;
+      // Nếu là COD thì khi nhận hàng xong coi như đã thanh toán
+      if (order.paymentStatus === PaymentStatus.PENDING) {
+          order.paymentStatus = PaymentStatus.COMPLETED;
+      }
+      order.updatedAt = new Date();
+      await manager.save(order);
+
+      // 1. Báo Admin
+      this.notiService.sendToAdmin(
+          'User confirmed delivery',
+          `User ${order.user.fullName} has confirmed delivery of order #${order.id}`,
+          'ORDER_COMPLETED'
+      ).catch(console.error);
+
+      // 2. Cảm ơn User
+      this.notiService.sendNotification(
+          userId,
+          'Thanks for shopping with us! 🎉',
+          `Order #${order.id} has been delivered.`
+      ).catch(console.error);
+
+      return { success: true, status: OrderStatus.DELIVERED };
     });
   }
 }

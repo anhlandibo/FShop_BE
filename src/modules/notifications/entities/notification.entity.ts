@@ -1,7 +1,8 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, Index } from 'typeorm';
 import { User } from 'src/modules/users/entities/user.entity'; // nếu có user entity
 
 @Entity('notifications')
+@Index(['user', 'isRead', 'createdAt'])
 export class Notification {
     @PrimaryGeneratedColumn()
     id: number;
