@@ -153,12 +153,15 @@ export class ProductsService {
           product: savedProduct,
         }),
       );
-      await manager.save(productImages);
+      const savedImages = await manager.save(productImages);
+
+      for (const img of savedImages) 
+        if (img.imageUrl) this.syncImageToVectorDB(img.id, savedProduct.id, img.imageUrl);
 
       return plainToInstance(Product, {
         ...savedProduct,
         variants,
-        images: productImages,
+        images: savedImages,
       });
     });
   }
@@ -215,7 +218,7 @@ export class ProductsService {
     };
   }
 
- async getProductById(id: number) {
+  async getProductById(id: number) {
     const product = await this.productRepository
       .createQueryBuilder('product')
       .where('product.id = :id', { id })
@@ -291,6 +294,17 @@ export class ProductsService {
 
       await manager.save(product);
       if (newProductImages.length > 0 || (dto as any).deleteOldImages) {
+        const imageIdsToDelete: number[] = [];
+
+        for (const img of product.images) {
+          if (img.publicId)
+            await this.cloudinaryService
+              .deleteFile(img.publicId)
+              .catch(() => {});
+          
+          imageIdsToDelete.push(img.id);
+        }
+
         for (const img of product.images) {
           if (img.publicId)
             await this.cloudinaryService
@@ -298,6 +312,9 @@ export class ProductsService {
               .catch(() => {});
         }
         await manager.remove(ProductImage, product.images);
+
+        // XÓA TRONG VECTOR DB
+        this.removeImagesFromVectorDB(imageIdsToDelete);
 
         // Upload & Tạo mới
         const prodImgEntities: ProductImage[] = [];
@@ -314,7 +331,11 @@ export class ProductsService {
             );
           }
         }
-        await manager.save(prodImgEntities);
+        const savedNewImages = await manager.save(prodImgEntities);
+
+        for (const img of savedNewImages) 
+          this.syncImageToVectorDB(img.id, product.id, img.imageUrl);
+        
       }
 
       if (dto.variants && dto.variants.length > 0) {
@@ -335,12 +356,10 @@ export class ProductsService {
           const vDto = dto.variants[i];
           const imageFile = variantImages[i];
 
-          // FIX LỖI TS2322: Khai báo variantEntity có thể là undefined lúc đầu
           let variantEntity: ProductVariant | undefined;
 
           // --- B1: Tìm hoặc Tạo ---
           if (vDto.id) {
-            // FIX LỖI TS2322: find có thể trả về undefined
             variantEntity = currentVariants.find((v) => v.id === vDto.id);
           }
 
@@ -360,7 +379,6 @@ export class ProductsService {
 
           // Tạo attribute mới
           if (vDto.attributes && vDto.attributes.length > 0) {
-            // FIX LỖI TS2345: Khai báo kiểu mảng VariantAttributeValue[]
             const newAttrs: VariantAttributeValue[] = [];
 
             for (const attr of vDto.attributes) {
@@ -370,7 +388,7 @@ export class ProductsService {
               if (ac) {
                 newAttrs.push(
                   manager.create(VariantAttributeValue, {
-                    productVariant: variantEntity, // Lưu ý: entity này lát nữa save sẽ có ID
+                    productVariant: variantEntity, 
                     attributeCategory: ac,
                   }),
                 );
@@ -388,13 +406,11 @@ export class ProductsService {
             }
             const up = await this.cloudinaryService.uploadFile(imageFile);
 
-            // FIX LỖI TS18048 & TS325: Dùng optional chaining (?.)
             variantEntity.imageUrl = up?.secure_url;
             variantEntity.publicId = up?.public_id;
           }
 
           // --- B4: Cập nhật thông tin ---
-          // FIX LỖI TS2322: Dùng ?? 0 để đảm bảo luôn là số
           variantEntity.quantity = vDto.quantity ?? 0;
           variantEntity.remaining = vDto.quantity ?? 0;
           variantEntity.isActive = true;
@@ -403,7 +419,6 @@ export class ProductsService {
           const savedVariant = await manager.save(variantEntity);
 
           // --- B6: Save Attributes ---
-          // (Lưu lại attribute với ID variant đã có)
           if (variantEntity.variantAttributeValues) {
             const attrsToSave = variantEntity.variantAttributeValues.map(
               (av) => {
@@ -461,6 +476,33 @@ export class ProductsService {
     catch (error) {
       console.error('AI Service Error:', error.message);
       throw new HttpException('Image search service unavailable', HttpStatus.SERVICE_UNAVAILABLE);
+    }
+  }
+
+  syncImageToVectorDB(imageId: number, productId: number, imageUrl: string) {
+    try {
+      const payload = {
+        image_id: imageId,
+        product_id: productId,
+        image_url: imageUrl,
+      };
+      this.httpService.post('http://localhost:8000/vectors/upsert', payload).subscribe({
+        error: (err) => console.error('Sync Vector Error:', err.message),
+      });
+    } catch (e) {
+      console.error('Sync Vector Failed', e);
+    }
+  }
+
+  removeImagesFromVectorDB(imageIds: number[]) {
+    if (!imageIds.length) return;
+    try {
+      const payload = { image_ids: imageIds };
+      this.httpService.post('http://localhost:8000/vectors/delete', payload).subscribe({
+        error: (err) => console.error('Delete Vector Error:', err.message),
+      });
+    } catch (e) {
+      console.error('Delete Vector Failed', e);
     }
   }
 }
