@@ -20,7 +20,7 @@ export class WishlistsService {
     console.log(userId);
     const wishlists = await this.wishlistsRepository.find({
       where: { user: { id: userId } },
-      relations: ['product.variants'],
+      relations: ['product.variants', 'product.images'],
     });
     return wishlists;
   }
