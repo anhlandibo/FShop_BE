@@ -1,6 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { HttpException, HttpStatus, Injectable, forwardRef, Inject } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Injectable,
+  forwardRef,
+  Inject,
+} from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Order, OrderItem } from './entities';
 import { DataSource, FindOptionsWhere, Like, Repository } from 'typeorm';
@@ -10,7 +16,10 @@ import { Cart, CartItem } from '../carts/entities';
 import { NotificationType, OrderStatus, Role, ShippingMethod } from 'src/constants';
 import { ProductVariant } from '../products/entities';
 import { Address } from '../address/entities/address.entity';
-import { ActorRole, ensureTransitionAllowed } from 'src/utils/order-status.rules';
+import {
+  ActorRole,
+  ensureTransitionAllowed,
+} from 'src/utils/order-status.rules';
 import { NotificationsService } from 'src/modules/notifications/notifications.service';
 import { NotificationsGateway } from 'src/modules/notifications/notifications.gateway';
 import { OrderQueryDto } from 'src/dto/orderQuery.dto';
@@ -33,13 +42,12 @@ export class OrdersService {
     private couponsService: CouponsService,
   ) {}
 
-
   private calculateShippingFee(shippingMethod: ShippingMethod): number {
     switch (shippingMethod) {
       case ShippingMethod.STANDARD:
-        return 10; 
+        return 10;
       case ShippingMethod.EXPRESS:
-        return 20; 
+        return 20;
       default:
         return 30000;
     }
@@ -47,7 +55,14 @@ export class OrdersService {
 
   async create(userId: number, createOrderDto: CreateOrderDto) {
     return await this.dataSource.manager.transaction(async (manager) => {
-      const { addressId, note, items, paymentMethod, shippingMethod, couponCode } = createOrderDto;
+      const {
+        addressId,
+        note,
+        items,
+        paymentMethod,
+        shippingMethod,
+        couponCode,
+      } = createOrderDto;
 
       // 1. Validate address
       const address = await manager.findOne(Address, {
@@ -153,7 +168,11 @@ export class OrdersService {
       let discountAmount = 0;
       if (couponCode) {
         try {
-          const couponResult = await this.couponsService.apply(couponCode, order.id, userId);
+          const couponResult = await this.couponsService.apply(
+            couponCode,
+            order.id,
+            userId,
+          );
           discountAmount = Number(couponResult.discountAmount) || 0;
         } catch (error: any) {
           // If coupon application fails, rollback the transaction
@@ -166,7 +185,10 @@ export class OrdersService {
 
       // 7. Calculate final total amount
       order.discountAmount = discountAmount;
-      order.totalAmount = Math.max(0, Math.round(subtotal + shippingFee - discountAmount));
+      order.totalAmount = Math.max(
+        0,
+        Math.round(subtotal + shippingFee - discountAmount),
+      );
       await manager.save(order);
 
       // 8. Create notification
@@ -192,9 +214,16 @@ export class OrdersService {
     const [data, total] = await this.orderRepository.findAndCount({
       where: {
         user: { id: userId },
-        ...(status && { status })
+        ...(status && { status }),
       },
-      relations: ['items', 'items.variant'],
+      relations: [
+        'items',
+        'items.variant',
+        'items.variant.product',
+        'items.variant.variantAttributeValues',
+        'items.variant.variantAttributeValues.attributeCategory',
+        'items.variant.variantAttributeValues.attributeCategory.attribute',
+      ],
       ...(page && limit && { take: limit, skip: (page - 1) * limit }),
       order: { [sortBy]: sortOrder },
     });
@@ -322,7 +351,9 @@ export class OrdersService {
 
           if (redemption) {
             await manager.remove(redemption);
-            console.log(`Removed unredeemed coupon ${order.couponCode} for canceled order #${order.id}`);
+            console.log(
+              `Removed unredeemed coupon ${order.couponCode} for canceled order #${order.id}`,
+            );
           }
         }
       }
@@ -335,7 +366,9 @@ export class OrdersService {
             order.id,
             order.user.id,
           );
-          console.log(`Coupon ${order.couponCode} redeemed for order #${order.id}`);
+          console.log(
+            `Coupon ${order.couponCode} redeemed for order #${order.id}`,
+          );
         } catch (error: any) {
           console.error(`Failed to redeem coupon: ${error?.message}`);
           // Don't rollback order confirmation if coupon redeem fails
