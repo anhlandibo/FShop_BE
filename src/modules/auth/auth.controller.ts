@@ -8,6 +8,7 @@ import { RefreshTokenDto } from './dto/refresh-dto';
 import { ApiOperation, ApiUnauthorizedResponse } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { Auth } from './entities/auth.entity';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -122,6 +123,14 @@ export class AuthController {
     return { message: 'Logged out from all devices' };
   }
 
+  @Post('change-password')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({ summary: 'Change password' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  async changePassword(@Req() req: Request, @Body() changePasswordDto: ChangePasswordDto) {
+    const { id } = req['user'];
+    return this.authService.changePassword(id, changePasswordDto);
+  }
 
 
 }

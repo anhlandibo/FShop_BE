@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { LoginAuthDto } from './dto/login-auth.dto';
-import { comparePassword } from 'src/utils/hash';
+import { comparePassword, hashPassword } from 'src/utils/hash';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from 'src/modules/users/users.service';
 import { RefreshTokenDto } from './dto/refresh-dto';
@@ -16,6 +16,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { randomUUID } from 'crypto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -209,5 +210,30 @@ export class AuthService {
       throw new HttpException('User not found', HttpStatus.NOT_FOUND);
     }
     return user;
+  }
+
+  async changePassword(userId: number, changePasswordDto: ChangePasswordDto) {
+    const { oldPassword, newPassword, confirmNewPassword } = changePasswordDto;
+
+    if (newPassword !== confirmNewPassword) 
+      throw new HttpException('New password and confirmation do not match', HttpStatus.BAD_REQUEST);
+
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user)throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+
+    const isMatch = await comparePassword(oldPassword, user.password);
+    if (!isMatch) throw new HttpException('Incorrect old password', HttpStatus.BAD_REQUEST);
+
+    if (oldPassword === newPassword) 
+      throw new HttpException('New password cannot be the same as old password', HttpStatus.BAD_REQUEST)
+    
+    const newHashedPassword = await hashPassword(newPassword);
+    await this.usersRepository.update(userId, { 
+      password: newHashedPassword 
+    });
+
+    await this.logoutAll(userId);
+
+    return { message: 'Password changed successfully' };
   }
 }

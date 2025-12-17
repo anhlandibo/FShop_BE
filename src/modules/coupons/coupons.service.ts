@@ -14,6 +14,7 @@ import { ProductVariant } from '../products/entities';
 import { Cart } from '../carts/entities';
 import { MyCouponsQueryDto } from './dto/my-coupons-query.dto';
 import { NotificationsService } from '../notifications/notifications.service';
+import { iif } from 'rxjs';
 
 @Injectable()
 export class CouponsService {
@@ -165,8 +166,17 @@ export class CouponsService {
       if (!coupon)
         throw new HttpException('Coupon not found', HttpStatus.NOT_FOUND);
 
+      const usageCount = await this.couponRedemptionRepository.count({ where: { coupon: { id } } });
+      if (usageCount > 0) 
+        throw new HttpException('Cannot delete this coupon because it has been used by customers. You can only update its status to INACTIVE.', HttpStatus.BAD_REQUEST);
+    
+
       await manager.delete(Coupon, coupon);
-      return { deletedId: id };
+      return { 
+        deleted: true, 
+        id,
+        message: 'Coupon deleted successfully.' 
+      };
     });
   }
 
