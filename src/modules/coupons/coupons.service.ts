@@ -9,7 +9,7 @@ import { Coupon } from './entities/coupon.entity';
 import { CreateCouponDto } from './dto/create-coupon.dto';
 import { QueryDto } from 'src/dto/query.dto';
 import { UpdateCouponDto } from './dto/update-coupon.dto';
-import { CouponStatus, DiscountType, TargetType } from 'src/constants';
+import { CouponStatus, DiscountType, NotificationType, TargetType } from 'src/constants';
 import { ProductVariant } from '../products/entities';
 import { Cart } from '../carts/entities';
 import { MyCouponsQueryDto } from './dto/my-coupons-query.dto';
@@ -82,7 +82,7 @@ export class CouponsService {
       }
 
       // Gửi Broadcast (Socket + DB)
-      this.notiService.sendToAll(title, message).catch(err => {
+      this.notiService.sendToAll(title, message, NotificationType.DISCOUNT).catch(err => {
           console.error('Failed to broadcast coupon notification:', err);
       });
 

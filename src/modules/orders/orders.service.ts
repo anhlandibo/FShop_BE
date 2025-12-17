@@ -7,7 +7,7 @@ import { DataSource, FindOptionsWhere, Like, Repository } from 'typeorm';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { User } from '../users/entities/user.entity';
 import { Cart, CartItem } from '../carts/entities';
-import { OrderStatus, Role, ShippingMethod } from 'src/constants';
+import { NotificationType, OrderStatus, Role, ShippingMethod } from 'src/constants';
 import { ProductVariant } from '../products/entities';
 import { Address } from '../address/entities/address.entity';
 import {
@@ -176,13 +176,14 @@ export class OrdersService {
       this.notiService.sendNotification(
           userId, 
           'Place order successfully! 🎉', 
-          `Order #${order.id} is pending.`
+          `Order #${order.id} is pending.`,
+          NotificationType.ORDER
       ).catch(console.error);
 
       this.notiService.sendToAdmin(
           'New Order 📦',
           `User #${userId} has placed a new order #${order.id}`,
-          'NEW_ORDER'
+          NotificationType.ORDER
       ).catch(console.error);
 
       return order;
@@ -378,7 +379,7 @@ export class OrdersService {
           }
 
           // Gửi thông báo cho User
-          this.notiService.sendNotification(order.user.id, title, message).catch(console.error);
+          this.notiService.sendNotification(order.user.id, title, message, NotificationType.ORDER).catch(console.error);
       }
 
       return { message: 'Order status updated', from: prev, to: next };
@@ -413,14 +414,15 @@ export class OrdersService {
       this.notiService.sendToAdmin(
           'User confirmed delivery',
           `User ${order.user.fullName} has confirmed delivery of order #${order.id}`,
-          'ORDER_COMPLETED'
+          NotificationType.ORDER
       ).catch(console.error);
 
       // 2. Cảm ơn User
       this.notiService.sendNotification(
           userId,
           'Thanks for shopping with us! 🎉',
-          `Order #${order.id} has been delivered.`
+          `Order #${order.id} has been delivered.`,
+          NotificationType.ORDER
       ).catch(console.error);
 
       return { success: true, status: OrderStatus.DELIVERED };

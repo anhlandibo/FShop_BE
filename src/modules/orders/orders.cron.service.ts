@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, LessThan, Repository } from 'typeorm';
 import { Order } from './entities/order.entity';
 import { ProductVariant } from '../products/entities/product-variant.entity';
-import { OrderStatus } from 'src/constants';
+import { NotificationType, OrderStatus } from 'src/constants';
 import { PaymentStatus } from 'src/constants/payment-status.enum';
 import { CouponRedemption } from '../coupons/entities/coupon-redemption.entity';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -92,7 +92,8 @@ export class OrdersCronService {
          this.notiService.sendNotification(
              order.user.id,
              'Order has been automatically canceled',
-             `Order #${order.id} has been automatically canceled due to payment timeout.`
+             `Order #${order.id} has been automatically canceled due to payment timeout.`,
+             NotificationType.ORDER
          ).catch(err => this.logger.error('Failed to send cron notification', err));
      }
 
