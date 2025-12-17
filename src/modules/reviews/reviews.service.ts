@@ -56,7 +56,7 @@ export class ReviewsService {
           id: createReviewDto.orderId,
           user: { id: userId },
         },
-        relations: ['items', 'items.product'],
+        relations: ['items', 'items.variant.product'],
       });
       if (!order) throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
 

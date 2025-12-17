@@ -17,6 +17,10 @@ import { Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { randomUUID } from 'crypto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { v4 as uuidv4 } from 'uuid';
+import { MailerService } from '@nestjs-modules/mailer';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -27,6 +31,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly cloudinaryService: CloudinaryService,
     @InjectRedis() private readonly redis: Redis,
+    private readonly mailerService: MailerService,
   ) { }
 
   private readonly REFRESH_PREFIX = 'rt' // key: rt:{userId}:{jti}
@@ -235,5 +240,59 @@ export class AuthService {
     await this.logoutAll(userId);
 
     return { message: 'Password changed successfully' };
+  }
+
+  async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
+    const { email } = forgotPasswordDto;
+    const user = await this.usersService.findByEmail(email).catch(() => null);
+
+    if (!user) 
+      return { message: 'If your email is correct, please check your inbox.' };
+    
+
+    // 1. Tạo Token
+    const token = uuidv4();
+
+    // 2. Lưu Redis: key="forgot_pw:{token}" -> value={userId}
+    // TTL: 900 giây (15 phút)
+    await this.redis.set(`forgot_pw:${token}`, user.id, 'EX', 900);
+
+    // 3. Tạo Link Frontend
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+    const resetLink = `${frontendUrl}/reset-password?token=${token}`;
+
+    // 4. Gửi Email
+    try {
+      await this.mailerService.sendMail({
+        to: email,
+        subject: 'Reset Your Password',
+        html: `
+          <h3>Hi ${user.fullName},</h3>
+          <p>You requested to reset your password.</p>
+          <p>Click the link below to verify and set a new password:</p>
+          <a href="${resetLink}" target="_blank" style="padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">Reset Password</a>
+          <p>This link expires in 15 minutes.</p>
+        `,
+      });
+    } catch (error) {
+      console.log('Send mail error:', error);
+    }
+    return { message: 'If your email is correct, please check your inbox.' };
+  }
+
+  async resetPassword(resetPasswordDto: ResetPasswordDto) {
+    const { token, newPassword, confirmNewPassword } = resetPasswordDto;
+    if (newPassword !== confirmNewPassword) 
+      throw new HttpException('Passwords do not match', HttpStatus.BAD_REQUEST);
+    const userId = await this.redis.get(`forgot_pw:${token}`);
+    if (!userId) 
+      throw new HttpException('Invalid or expired reset token', HttpStatus.BAD_REQUEST);
+    const hashedPassword = await hashPassword(newPassword);
+    await this.usersRepository.update(userId, { password: hashedPassword });
+    await this.redis.del(`forgot_pw:${token}`);
+
+    await this.logoutAll(Number(userId));
+
+    return { message: 'Password has been reset successfully. Please login again.' };
   }
 }

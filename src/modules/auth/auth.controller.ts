@@ -9,6 +9,8 @@ import { ApiOperation, ApiUnauthorizedResponse } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { Auth } from './entities/auth.entity';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -130,6 +132,18 @@ export class AuthController {
   async changePassword(@Req() req: Request, @Body() changePasswordDto: ChangePasswordDto) {
     const { id } = req['user'];
     return this.authService.changePassword(id, changePasswordDto);
+  }
+
+  @Post('forgot-password')
+  @ApiOperation({ summary: 'Step 1: Request password reset email' })
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(forgotPasswordDto);
+  }
+
+  @Post('reset-password')
+  @ApiOperation({ summary: 'Step 2: Submit new password with token' })
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(resetPasswordDto);
   }
 
 
