@@ -101,14 +101,14 @@ export class AuthController {
   }
 
   @Post('logout')
-  @UseGuards(AuthGuard('jwt')) // tránh CSRF đơn giản bằng yêu cầu access token còn hạn
+  @UseGuards(AuthGuard('jwt')) 
   @ApiOperation({ summary: 'Logout current session' })
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const refreshToken = (req as any).cookies?.['refresh_token'] as string | undefined;
     await this.authService.logout(refreshToken, req);
-    res.clearCookie('access_token', { httpOnly: true, sameSite: 'lax', secure: false });
-    res.clearCookie('refresh_token', { httpOnly: true, sameSite: 'lax', secure: false });
-    return { message: 'Logged out' };
+    res.clearCookie('access_token', { httpOnly: true, sameSite: 'lax', secure: false, path: '/' });
+    res.clearCookie('refresh_token', { httpOnly: true, sameSite: 'lax', secure: false, path: '/' });
+    return { message: 'Logged out', timestamp: new Date().toISOString() };
   }
 
   @Post('logout-all')

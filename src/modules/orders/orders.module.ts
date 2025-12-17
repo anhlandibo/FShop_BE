@@ -12,6 +12,7 @@ import { Payment } from '../payments/entities/payment.entity';
 import { OrdersCronService } from './orders.cron.service';
 import { CouponsModule } from '../coupons/coupons.module';
 import { CouponRedemption } from '../coupons/entities/coupon-redemption.entity';
+import { StockModule } from '../stock/stock.module';
 
 @Module({
   controllers: [OrdersController],
@@ -20,6 +21,7 @@ import { CouponRedemption } from '../coupons/entities/coupon-redemption.entity';
     TypeOrmModule.forFeature([Order, OrderItem, Address, ProductVariant, Cart, CartItem, Payment, CouponRedemption]),
     NotificationsModule,
     CouponsModule,
+    StockModule,
   ],
   exports: [OrdersService],
 })

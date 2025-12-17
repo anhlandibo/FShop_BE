@@ -38,6 +38,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { getMailConfig } from './configs/mail.config';
+import { StockModule } from './modules/stock/stock.module';
 
 @Module({
   imports: [
@@ -74,7 +75,8 @@ import { getMailConfig } from './configs/mail.config';
     WishlistsModule,
     NotificationsModule,
     ReviewsModule,
-    PaymentsModule
+    PaymentsModule,
+    StockModule
   ],
   controllers: [AppController],
   providers: [

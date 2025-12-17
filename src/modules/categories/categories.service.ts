@@ -1,6 +1,11 @@
 /* eslint-disable no-prototype-builtins */
 import { InjectRedis } from '@nestjs-modules/ioredis';
-import { HttpException, HttpStatus, Injectable, UseGuards } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Injectable,
+  UseGuards,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import Redis from 'ioredis';
 import { Repository, DataSource, Like, In } from 'typeorm';
@@ -8,7 +13,11 @@ import { Category } from './entities/category.entity';
 import { QueryDto } from 'src/dto/query.dto';
 import { hashKey } from 'src/utils/hash';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
-import { CreateCategoryDto, UpdateCategoryDto, DeleteCategoriesDto } from './dto';
+import {
+  CreateCategoryDto,
+  UpdateCategoryDto,
+  DeleteCategoriesDto,
+} from './dto';
 import { Department } from '../departments/entities/department.entity';
 import { AttributeCategory } from '../attributes/entities/attribute-category.entity';
 import { CreateAttributeValueDto } from '../attributes/dto/create-attribute-value.dto';
@@ -17,20 +26,31 @@ import { Attribute } from '../attributes/entities/attribute.entity';
 @Injectable()
 export class CategoriesService {
   constructor(
-    @InjectRepository(Category) private categoryRepository: Repository<Category>,
+    @InjectRepository(Category)
+    private categoryRepository: Repository<Category>,
     @InjectRedis() private readonly redis: Redis,
     private dataSource: DataSource,
     private readonly cloudinaryService: CloudinaryService,
-  ) { }
+  ) {}
 
-  async create(createCategoryDto: CreateCategoryDto, file: Express.Multer.File) {
+  async create(
+    createCategoryDto: CreateCategoryDto,
+    file: Express.Multer.File,
+  ) {
     return await this.dataSource.transaction(async (manager) => {
       // check trùng tên
-      if (await manager.findOne(Category, { where: { name: createCategoryDto.name } }))
+      if (
+        await manager.findOne(Category, {
+          where: { name: createCategoryDto.name },
+        })
+      )
         throw new HttpException('Category already exist', HttpStatus.CONFLICT);
       // check department
-      const department = await manager.findOne(Department, { where: { id: createCategoryDto.departmentId } });
-      if (!department) throw new HttpException('Department not found', HttpStatus.NOT_FOUND);
+      const department = await manager.findOne(Department, {
+        where: { id: createCategoryDto.departmentId },
+      });
+      if (!department)
+        throw new HttpException('Department not found', HttpStatus.NOT_FOUND);
 
       // Upload ảnh
       let imageUrl: string | undefined;
@@ -48,7 +68,10 @@ export class CategoriesService {
           try {
             attributes = JSON.parse(createCategoryDto.attributes);
           } catch (e) {
-            throw new HttpException('Invalid attributes JSON', HttpStatus.BAD_REQUEST);
+            throw new HttpException(
+              'Invalid attributes JSON',
+              HttpStatus.BAD_REQUEST,
+            );
           }
         } else attributes = createCategoryDto.attributes;
       }
@@ -78,18 +101,30 @@ export class CategoriesService {
   }
 
   // logic còn vấn đề
-  async update(id: number, updateCategoryDto: UpdateCategoryDto, file?: Express.Multer.File) {
+  async update(
+    id: number,
+    updateCategoryDto: UpdateCategoryDto,
+    file?: Express.Multer.File,
+  ) {
     return await this.dataSource.transaction(async (manager) => {
       console.log(updateCategoryDto.attributes);
-      const category = await manager.findOne(Category, { 
-        where: { id }, 
-        relations: ['attributeCategories', 'attributeCategories.variantAttributeValues', 'department'] 
+      const category = await manager.findOne(Category, {
+        where: { id },
+        relations: [
+          'attributeCategories',
+          'attributeCategories.variantAttributeValues',
+          'department',
+        ],
       });
-      if (!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
+      if (!category)
+        throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
       // Update department
       if (updateCategoryDto.departmentId) {
-        const department = await manager.findOne(Department, { where: { id: updateCategoryDto.departmentId } });
-        if (!department) throw new HttpException('Department not found', HttpStatus.NOT_FOUND);
+        const department = await manager.findOne(Department, {
+          where: { id: updateCategoryDto.departmentId },
+        });
+        if (!department)
+          throw new HttpException('Department not found', HttpStatus.NOT_FOUND);
         category.department = department;
       }
       Object.assign(category, updateCategoryDto); // merge
@@ -122,9 +157,13 @@ export class CategoriesService {
       if (updateCategoryDto.attributes?.length) {
         for (const attr of updateCategoryDto.attributes) {
           const attribute = await manager.findOne(Attribute, {
-            where: { id: attr.attributeId }
-          })
-          if (!attribute) throw new HttpException('Attribute not found', HttpStatus.NOT_FOUND);
+            where: { id: attr.attributeId },
+          });
+          if (!attribute)
+            throw new HttpException(
+              'Attribute not found',
+              HttpStatus.NOT_FOUND,
+            );
           const newAttrCat = manager.create(AttributeCategory, {
             attribute,
             category,
@@ -143,19 +182,25 @@ export class CategoriesService {
           'department',
         ],
       });
-      if (updated) updated.attributeCategories = updated.attributeCategories.filter((attrCat) => attrCat.isActive);
+      if (updated)
+        updated.attributeCategories = updated.attributeCategories.filter(
+          (attrCat) => attrCat.isActive,
+        );
 
       return updated;
     });
   }
 
-
   async delete(id: number) {
     return await this.dataSource.transaction(async (manager) => {
       const category = await manager.findOne(Category, { where: { id } });
-      if (!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
+      if (!category)
+        throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
 
-      if (category.publicId) await this.cloudinaryService.deleteFile(category.publicId).catch(() => null);
+      if (category.publicId)
+        await this.cloudinaryService
+          .deleteFile(category.publicId)
+          .catch(() => null);
       // hard delete cho các record attribute-category
       await manager.delete(AttributeCategory, { category: { id } });
       await manager.update(Category, id, { isActive: false });
@@ -191,8 +236,8 @@ export class CategoriesService {
       order: { [sortBy]: sortOrder },
       relations: {
         attributeCategories: {
-          attribute: true,   // 👈 load Attribute
-          category: true     // 👈 load Category (nếu cần, nhưng Category chính là bảng này)
+          attribute: true, // 👈 load Attribute
+          category: true, // 👈 load Category (nếu cần, nhưng Category chính là bảng này)
         },
       },
     });
@@ -211,14 +256,30 @@ export class CategoriesService {
   }
 
   async getById(id: number) {
-    const category = await this.categoryRepository.findOne({ where: { id }, relations: ['attributeCategories', 'department'] });
-    if (!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
+    const category = await this.categoryRepository.findOne({
+      where: { id },
+      relations: [
+        'attributeCategories',
+        'department',
+        'attributeCategories.attribute',
+      ],
+    });
+    if (!category)
+      throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
     return category;
   }
 
   async getBySlug(slug: string) {
-    const category = await this.categoryRepository.findOne({ where: { slug }, relations: ['attributeCategories', 'department', 'attributeCategories.attribute'] });
-    if (!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
+    const category = await this.categoryRepository.findOne({
+      where: { slug },
+      relations: [
+        'attributeCategories',
+        'department',
+        'attributeCategories.attribute',
+      ],
+    });
+    if (!category)
+      throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
     return category;
   }
 

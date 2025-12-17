@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Like, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Like, Repository } from 'typeorm';
 import { CouponRedemption } from './entities/coupon-redemption.entity';
 import { CouponTarget } from './entities/coupon-target.entity';
 import { Coupon } from './entities/coupon.entity';
@@ -37,7 +37,7 @@ export class CouponsService {
       const existing = await manager.findOne(Coupon, {
         where: { code: createCouponDto.code },
       });
-      if (existing) throw new HttpException('Coupon code already exists',HttpStatus.BAD_REQUEST);
+      if (existing) throw new HttpException('Coupon code already exists',HttpStatus.BAD_REQUEST); 
         
       const coupon = manager.create(Coupon, {
         ...createCouponDto,
@@ -257,39 +257,142 @@ export class CouponsService {
     };
   }  
 
-  async apply(code: string, orderId: number, userId: number) {
-    return await this.dataSource.transaction(async (manager) => {
-      console.log(userId)
-      const validation = await this.validate(code, userId);
-      if (!validation.valid) throw new HttpException("Coupon not valid", HttpStatus.BAD_REQUEST);
+  /**
+   * Calculate discount for order items
+   * This is called during order creation with actual order items
+   */
+  async calculateDiscount(
+    code: string,
+    userId: number,
+    orderItems: Array<{ variantId: number; quantity: number; price: number; product: any; category?: any }>,
+    shippingFee: number,
+  ) {
+    const now = new Date();
 
-      const coupon = await manager.findOne(Coupon, {where: { code }, relations: ['targets']});
+    // 1. Find coupon
+    const coupon = await this.couponRepository.findOne({
+      where: { code },
+      relations: ['targets'],
+    });
+    if (!coupon) throw new HttpException('Coupon not found', HttpStatus.NOT_FOUND);
+
+    // 2. Validate basic conditions
+    if (coupon.status !== CouponStatus.ACTIVE)
+      throw new HttpException('Coupon is not active', HttpStatus.BAD_REQUEST);
+    if (now < coupon.startDate)
+      throw new HttpException('Coupon has not started yet', HttpStatus.BAD_REQUEST);
+    if (now > coupon.endDate)
+      throw new HttpException('Coupon has expired', HttpStatus.BAD_REQUEST);
+
+    // 3. Check usage limits
+    const [totalUsed, usedByUser] = await Promise.all([
+      this.couponRedemptionRepository.count({ where: { coupon: { id: coupon.id }, isRedeemed: true } }),
+      this.couponRedemptionRepository.count({ where: { coupon: { id: coupon.id }, user: { id: userId }, isRedeemed: true } }),
+    ]);
+    if (coupon.usageLimit && totalUsed >= coupon.usageLimit)
+      throw new HttpException('Coupon usage limit reached', HttpStatus.BAD_REQUEST);
+    if (coupon.usageLimitPerUser && usedByUser >= coupon.usageLimitPerUser)
+      throw new HttpException('You have already used this coupon', HttpStatus.BAD_REQUEST);
+
+    // 4. Determine applicable items based on targets
+    const allTarget = coupon.targets?.some((t) => t.targetType === TargetType.ALL);
+    const applicableItems = allTarget
+      ? orderItems
+      : orderItems.filter((item) => {
+          return coupon.targets?.some(
+            (t) =>
+              (t.targetType === TargetType.PRODUCT && t.targetId === item.product.id) ||
+              (t.targetType === TargetType.CATEGORY && t.targetId === item.category?.id),
+          );
+        });
+
+    if (!applicableItems.length)
+      throw new HttpException('Coupon not applicable to any items in this order', HttpStatus.BAD_REQUEST);
+
+    // 5. Calculate subtotal of applicable items
+    const applicableSubtotal = applicableItems.reduce((sum, item) => {
+      return sum + Number(item.price) * item.quantity;
+    }, 0);
+
+    // 6. Calculate total order amount
+    const orderSubtotal = orderItems.reduce((sum, item) => {
+      return sum + Number(item.price) * item.quantity;
+    }, 0);
+
+    // 7. Check minimum order amount (based on total order, not just applicable items)
+    if (coupon.minOrderAmount && orderSubtotal < Number(coupon.minOrderAmount))
+      throw new HttpException(
+        `Minimum order amount of ${coupon.minOrderAmount} not reached. Current: ${orderSubtotal}`,
+        HttpStatus.BAD_REQUEST,
+      );
+
+    // 8. Calculate discount
+    let discountAmount = 0;
+    if (coupon.discountType === DiscountType.PERCENTAGE) {
+      // Percentage discount applies to applicable items only
+      discountAmount = applicableSubtotal * (Number(coupon.discountValue) / 100);
+    } else if (coupon.discountType === DiscountType.FIXED_AMOUNT) {
+      // Fixed discount
+      discountAmount = Number(coupon.discountValue || 0);
+    } else if (coupon.discountType === DiscountType.FREE_SHIPPING) {
+      // Free shipping - discount equals shipping fee
+      discountAmount = shippingFee;
+    }
+
+    // 9. Cap discount at order subtotal + shipping fee
+    const maxDiscount = orderSubtotal + shippingFee;
+    if (discountAmount > maxDiscount) discountAmount = maxDiscount;
+
+    return {
+      discountAmount: Math.round(discountAmount),
+      applicableItemsCount: applicableItems.length,
+      couponId: coupon.id,
+    };
+  }
+
+  /**
+   * Apply coupon to order - creates redemption record
+   * This should be called AFTER calculateDiscount() during order creation
+   * Note: Discount calculation is done separately in calculateDiscount()
+   */
+  async apply(code: string, orderId: number, userId: number, transactionManager?: EntityManager) {
+    const execute = async (manager: EntityManager) => {
+      // 1. Find coupon
+      const coupon = await manager.findOne(Coupon, { where: { code }, relations: ['targets'] });
       if (!coupon) throw new HttpException('Coupon not found', HttpStatus.NOT_FOUND);
 
-      // check coupon co apply cho order chua
+      // 2. Check if already applied
       const existed = await manager.findOne(CouponRedemption, {
-        where: { coupon: {id: coupon.id}, order: { id: orderId }, user: { id: userId } },
-      })
-      if (existed) throw new HttpException('Coupon already applied', HttpStatus.BAD_REQUEST);
+        where: { coupon: { id: coupon.id }, order: { id: orderId }, user: { id: userId } },
+      });
+      if (existed) throw new HttpException('Coupon already applied to this order', HttpStatus.BAD_REQUEST);
 
+      // 3. Create redemption record
       const redemption = manager.create(CouponRedemption, {
         coupon,
         user: { id: userId },
         order: { id: orderId },
         isRedeemed: false,
         appliedAt: new Date(),
-      })
+      });
+
       await manager.save(CouponRedemption, redemption);
 
       return {
         applied: true,
         code: coupon.code,
-        discountAmount: validation.discountAmount,
-        totalAmount: validation.totalAmount,
-        applicableItemsCount: validation.applicableItemsCount,
         message: `Coupon ${coupon.code} applied successfully.`,
       };
-    })
+    };
+
+    // Use provided transaction manager or create new one
+    if (transactionManager) {
+      return await execute(transactionManager);
+    } else {
+      return await this.dataSource.transaction(async (newManager) => {
+        return await execute(newManager);
+      });
+    }
   }
 
   async redeem(code: string, orderId: number, userId: number) {
