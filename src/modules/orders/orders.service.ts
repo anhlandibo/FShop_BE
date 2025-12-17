@@ -26,6 +26,7 @@ import { OrderQueryDto } from 'src/dto/orderQuery.dto';
 import { PaymentStatus } from 'src/constants/payment-status.enum';
 import { CouponsService } from '../coupons/coupons.service';
 import { CouponRedemption } from '../coupons/entities/coupon-redemption.entity';
+import { StockService } from '../stock/stock.service';
 
 @Injectable()
 export class OrdersService {
@@ -40,6 +41,7 @@ export class OrdersService {
     @InjectDataSource() private readonly dataSource: DataSource,
     private notiService: NotificationsService,
     private couponsService: CouponsService,
+    private stockService: StockService,
   ) {}
 
   private calculateShippingFee(shippingMethod: ShippingMethod): number {
@@ -106,12 +108,12 @@ export class OrdersService {
 
       // 5. Process order items and calculate subtotal
       let subtotal = 0;
+      const orderItemsData: Array<{ variantId: number; quantity: number; price: number; product: any; category?: any }> = [];
+
       for (const itemDto of items) {
-        // A. Lấy thông tin Variant trực tiếp từ DB (Source of Truth)
-        // Thay vì tìm trong cart, ta tìm trong bảng ProductVariant
         const variant = await manager.findOne(ProductVariant, {
           where: { id: itemDto.variantId },
-          relations: ['product'],
+          relations: ['product', 'product.category'],
         });
 
         if (!variant) {
@@ -128,9 +130,18 @@ export class OrdersService {
             HttpStatus.BAD_REQUEST,
           );
 
-        // C. Reduce stock
+        // C. Reduce stock and log it
         variant.remaining -= itemDto.quantity;
         await manager.save(ProductVariant, variant);
+
+        // Log stock out for audit trail
+        await this.stockService.logStockOut(
+          manager,
+          variant,
+          itemDto.quantity,
+          `Xuất kho cho đơn hàng #${order.id} - ${variant.product.name}`,
+          userId,
+        );
 
         // D. Create order item
         const orderItem = manager.create(OrderItem, {
@@ -143,9 +154,16 @@ export class OrdersService {
 
         subtotal += itemDto.quantity * Number(orderItem.price);
 
-        // E. CART CLEANUP (Logic quan trọng để hỗ trợ cả Mua ngay & Giỏ hàng)
-        // Kiểm tra xem item này có trong giỏ hàng của user không.
-        // Nếu có thì xóa hoặc trừ số lượng đi. Nếu không có (mua ngay/mua lại) thì bỏ qua.
+        // Store order item data for coupon calculation
+        orderItemsData.push({
+          variantId: variant.id,
+          quantity: itemDto.quantity,
+          price: Number(variant.product.price),
+          product: variant.product,
+          category: variant.product.category,
+        });
+
+        // E. Clean up cart if applicable
         if (cart && cart.items.length > 0) {
           const cartItem = cart.items.find(
             (ci) => ci.variant.id === variant.id,
@@ -164,18 +182,28 @@ export class OrdersService {
         }
       }
 
-      // 6. Apply coupon if provided
+      // 6. Calculate discount if coupon provided
       let discountAmount = 0;
       if (couponCode) {
         try {
-          const couponResult = await this.couponsService.apply(
+          // Calculate discount based on actual order items
+          const couponResult = await this.couponsService.calculateDiscount(
+            couponCode,
+            userId,
+            orderItemsData,
+            shippingFee,
+          );
+          discountAmount = Number(couponResult.discountAmount) || 0;
+
+          // Create coupon redemption record
+          await this.couponsService.apply(
             couponCode,
             order.id,
             userId,
+            manager,
           );
-          discountAmount = Number(couponResult.discountAmount) || 0;
         } catch (error: any) {
-          // If coupon application fails, rollback the transaction
+          // If coupon fails, rollback the transaction
           throw new HttpException(
             error?.message || 'Failed to apply coupon',
             HttpStatus.BAD_REQUEST,
@@ -329,14 +357,24 @@ export class OrdersService {
 
       // Handle CANCELED status - restore stock and remove coupon redemption
       if (next === OrderStatus.CANCELED) {
-        // Restore stock
+        // Restore stock and log audit trail
         for (const it of order.items) {
           const variant = await manager.findOne(ProductVariant, {
             where: { id: it.variant.id },
+            relations: ['product'],
           });
           if (variant) {
             variant.remaining = Number(variant.remaining) + Number(it.quantity);
             await manager.save(variant);
+
+            // Log stock restoration for audit trail
+            await this.stockService.logStockIn(
+              manager,
+              variant,
+              Number(it.quantity),
+              `Hoàn trả kho do hủy đơn #${order.id}${actor.reason ? ` - Lý do: ${actor.reason}` : ''} - ${variant.product.name}`,
+              actor.id,
+            );
           }
         }
 
@@ -353,6 +391,30 @@ export class OrdersService {
             await manager.remove(redemption);
             console.log(
               `Removed unredeemed coupon ${order.couponCode} for canceled order #${order.id}`,
+            );
+          }
+        }
+      }
+
+      // Handle RETURNED status - restore stock when customer returns items
+      if (next === OrderStatus.RETURNED) {
+        // Restore stock and log audit trail
+        for (const it of order.items) {
+          const variant = await manager.findOne(ProductVariant, {
+            where: { id: it.variant.id },
+            relations: ['product'],
+          });
+          if (variant) {
+            variant.remaining = Number(variant.remaining) + Number(it.quantity);
+            await manager.save(variant);
+
+            // Log stock restoration for audit trail
+            await this.stockService.logStockIn(
+              manager,
+              variant,
+              Number(it.quantity),
+              `Hoàn trả kho do khách trả hàng - Đơn #${order.id} - ${variant.product.name}`,
+              actor.id,
             );
           }
         }
