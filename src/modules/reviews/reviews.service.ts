@@ -13,7 +13,7 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { User } from '../users/entities/user.entity';
 import { Product } from '../products/entities';
-import { OrderStatus, ReviewStatus } from 'src/constants';
+import { NotificationType, OrderStatus, ReviewStatus } from 'src/constants';
 import { QueryDto } from 'src/dto/query.dto';
 import { hashKey } from 'src/utils/hash';
 import { VoteReviewDto } from './dto/vote-review.dto';
@@ -108,6 +108,12 @@ export class ReviewsService {
 
       await this.updateProductRating(manager, product.id);
 
+      await this.notificationService.sendToAdmin(
+        'New Review Pending',
+        `A new review for product "${product.name}" is waiting for approval.`,
+        NotificationType.REVIEW
+      );
+
       return savedReview;
     });
   }
@@ -171,52 +177,55 @@ export class ReviewsService {
   async approve(id: number) {
     return await this.dataSource.transaction(async (manager) => {
       const review = await manager.findOne(Review, {
-        where: {id},
-        relations: ['product']
-      })
-      if (!review) throw new HttpException('Review not found', HttpStatus.NOT_FOUND)
+        where: { id },
+        relations: ['product', 'user'],
+      });
+      if (!review) throw new HttpException('Review not found', HttpStatus.NOT_FOUND);
 
-      if (review.status === ReviewStatus.APPROVED) 
+      if (review.status === ReviewStatus.APPROVED)
         throw new HttpException('Review has already been approved', HttpStatus.BAD_REQUEST);
-      
-      review.status = ReviewStatus.APPROVED
-      await manager.save(review)
 
-      await this.updateProductRating(manager, review.product.id)
+      review.status = ReviewStatus.APPROVED;
+      await manager.save(review);
+
+      await this.updateProductRating(manager, review.product.id);
       await this.redis.del(`review:summary:${review.product.id}`); // clear cache
 
       await this.notificationService.create({
-        title: 'Review approved',
-        message: `Review for product #${review.product.id} has been approved`,
+        title: 'Review Approved',
+        message: `Your review for the product "${review.product.name}" has been approved.`,
         userId: review.user.id,
-      })
-      return review
-    })
+        type: NotificationType.REVIEW,
+      });
+      return review;
+    });
   }
 
   async reject(id: number) {
     return await this.dataSource.transaction(async (manager) => {
       const review = await manager.findOne(Review, {
-        where: {id},
-      })
-      if (!review) throw new HttpException('Review not found', HttpStatus.NOT_FOUND)
+        where: { id },
+        relations: ['product', 'user'],
+      });
+      if (!review) throw new HttpException('Review not found', HttpStatus.NOT_FOUND);
 
-      if (review.status === ReviewStatus.REJECTED) 
+      if (review.status === ReviewStatus.REJECTED)
         throw new HttpException('Review has already been rejected', HttpStatus.BAD_REQUEST);
-      
-      review.status = ReviewStatus.REJECTED
-      await manager.save(review)
 
-      await this.updateProductRating(manager, review.product.id)
+      review.status = ReviewStatus.REJECTED;
+      await manager.save(review);
+
+      await this.updateProductRating(manager, review.product.id);
       await this.redis.del(`review:summary:${review.product.id}`);
 
       await this.notificationService.create({
-        title: 'Review rejected',
-        message: `Review for product #${review.product.name} has been rejected`,
+        title: 'Review Rejected',
+        message: `Your review for the product "${review.product.name}" has been rejected.`,
         userId: review.user.id,
-      })
-      return review
-    })
+        type: NotificationType.REVIEW,
+      });
+      return review;
+    });
   }
 
   async vote(reviewId: number, userId: number, voteReviewDto: VoteReviewDto) {

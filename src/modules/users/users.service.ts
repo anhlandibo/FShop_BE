@@ -165,11 +165,15 @@ export class UsersService {
   }
 
   async updateProfile(id: number, updateProfileDto: UpdateProfileDto, file?: Express.Multer.File) {
+    console.log('UpdateProfileDto received:', updateProfileDto);
+    console.log('ID: ', id);
+    if (isNaN(id)) {
+        throw new HttpException('Invalid User ID', HttpStatus.BAD_REQUEST);
+    }
     // 1. Tìm user hiện tại
     const user = await this.usersRepository.findOne({ where: { id } });
-    if (!user) {
+    if (!user) 
       throw new HttpException('User not found', HttpStatus.NOT_FOUND);
-    }
 
     // 2. Cập nhật Avatar nếu có file gửi lên
     if (file) {

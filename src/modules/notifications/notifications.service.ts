@@ -7,7 +7,7 @@ import { Repository } from 'typeorm';
 import { User } from 'src/modules/users/entities/user.entity';
 import { NotificationsGateway } from 'src/modules/notifications/notifications.gateway';
 import { QueryNotificationDto } from './dto/query-notification.dto';
-import { Role } from 'src/constants';
+import { NotificationType, Role } from 'src/constants';
 
 @Injectable()
 export class NotificationsService {
@@ -38,11 +38,12 @@ export class NotificationsService {
     return savedNoti;
   }
 
-  async sendNotification(userId: number, title: string, message: string) {
+  async sendNotification(userId: number, title: string, message: string, type: NotificationType) {
       try {
         const notification = this.notificationRepository.create({
             title,
             message,
+            type,
             user: { id: userId },
             isRead: false
         });
@@ -54,7 +55,7 @@ export class NotificationsService {
       }
   }
 
-  async sendToAdmin(title: string, message: string, type = 'INFO') {
+  async sendToAdmin(title: string, message: string, type: NotificationType) {
       const data = {
           title,
           message,
@@ -73,6 +74,7 @@ export class NotificationsService {
               return this.notificationRepository.create({
                   title,
                   message,
+                  type,
                   user: { id: admin.id },
                   isRead: false
               });
@@ -83,11 +85,12 @@ export class NotificationsService {
   }
 
   // Gửi Broadcast 
-  async sendToAll(title: string, message: string) {
+  async sendToAll(title: string, message: string, type: NotificationType) {
       // 1. Socket broadcast
       this.notiGateway.broadcast({
           title,
           message,
+          type,
           createdAt: new Date(),
           isRead: false
       });
@@ -98,6 +101,7 @@ export class NotificationsService {
           const notifications = users.map(u => this.notificationRepository.create({
               title,
               message,
+              type,
               user: { id: u.id },
               isRead: false
           }));
@@ -147,10 +151,12 @@ export class NotificationsService {
       limit = 10,
       sortBy = 'createdAt',
       sortOrder = 'DESC',
+      type,
+      isRead
     } = query;
 
     const [data, total] = await this.notificationRepository.findAndCount({
-      where: { user: { id: userId } },
+      where: { user: { id: userId }, type, isRead: isRead === undefined ? undefined : isRead === 'true' },
       order: {
         [sortBy]: sortOrder,
         isRead: 'ASC', // unread luôn ưu tiên

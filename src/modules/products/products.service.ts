@@ -505,6 +505,40 @@ export class ProductsService {
       console.error('Delete Vector Failed', e);
     }
   }
+
+  async getRelatedProducts(id: number) {
+  const currentProduct = await this.productRepository.findOne({
+    where: { id },
+    relations: ['category'], 
+  });
+
+  if (!currentProduct) throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+
+  const relatedProducts = await this.productRepository
+    .createQueryBuilder('product')
+    .where('product.category.id = :categoryId', { categoryId: currentProduct.category.id })
+    .andWhere('product.id != :id', { id }) 
+    .andWhere('product.isActive = :isActive', { isActive: true }) 
+    .leftJoinAndSelect(
+      'product.variants',
+      'variant',
+      'variant.isActive = :isActive',
+      { isActive: true }
+    )
+    .leftJoinAndSelect(
+      'product.images',
+      'image',
+      'image.isActive = :isActive',
+      { isActive: true }
+    )
+    .leftJoinAndSelect('product.brand', 'brand')
+    .leftJoinAndSelect('product.category', 'category')
+    .orderBy('product.createdAt', 'DESC') 
+    .take(5) 
+    .getMany();
+
+  return relatedProducts;
+  }
 }
 
 

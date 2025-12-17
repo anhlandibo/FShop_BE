@@ -81,4 +81,11 @@ export class ProductsController {
     }
     return this.productsService.searchByImage(file);
   }
+
+  @Get('related/:id')
+  @ApiOperation({ summary: 'Get related products by ID' })
+  @ApiNotFoundResponse({ description: 'Product not found' })
+  getRelatedProducts(@Param('id') id: number) {
+    return this.productsService.getRelatedProducts(id);
+  }
 }
