@@ -92,4 +92,24 @@ export class AddressService {
     await this.addressRepository.save(address)
     return { message: 'Address updated successfully' }
   }
+
+  async setDefault(userId: number, addressId: number) {
+  const address = await this.addressRepository.findOne({
+    where: { id: addressId, user: { id: userId } },
+  });
+
+  if (!address) throw new HttpException('Address not found', HttpStatus.NOT_FOUND);
+  
+  if (address.isDefault) return { message: 'Address is already set as default' };
+
+  await this.addressRepository.update({ user: { id: userId }, isDefault: true }, { isDefault: false });
+
+  address.isDefault = true;
+  await this.addressRepository.save(address);
+
+  return {
+    message: 'Set default address successfully',
+    data: address,
+  };
+}
 }

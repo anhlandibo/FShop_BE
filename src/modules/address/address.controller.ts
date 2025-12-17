@@ -60,4 +60,15 @@ export class AddressController {
     const {id} = req['user'];
     return this.addressService.getAddressById(id, addressId);
   }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Patch('/default/:id') 
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Set address as default' })
+  @ApiResponse({ status: 200, description: 'Address set as default successfully' })
+  @ApiNotFoundResponse({ description: 'Address not found' })
+  setDefault(@Req() req: Request, @Param('id') id: number) {
+    const { id: userId } = req['user'];
+    return this.addressService.setDefault(userId, id);
+  }
 }
