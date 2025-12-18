@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Like, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Like, Repository } from 'typeorm';
 import { CouponRedemption } from './entities/coupon-redemption.entity';
 import { CouponTarget } from './entities/coupon-target.entity';
 import { Coupon } from './entities/coupon.entity';
@@ -14,6 +14,7 @@ import { ProductVariant } from '../products/entities';
 import { Cart } from '../carts/entities';
 import { MyCouponsQueryDto } from './dto/my-coupons-query.dto';
 import { NotificationsService } from '../notifications/notifications.service';
+import { iif } from 'rxjs';
 
 @Injectable()
 export class CouponsService {
@@ -37,7 +38,7 @@ export class CouponsService {
       const existing = await manager.findOne(Coupon, {
         where: { code: createCouponDto.code },
       });
-      if (existing) throw new HttpException('Coupon code already exists',HttpStatus.BAD_REQUEST);
+      if (existing) throw new HttpException('Coupon code already exists',HttpStatus.BAD_REQUEST); 
         
       const coupon = manager.create(Coupon, {
         ...createCouponDto,
@@ -165,8 +166,17 @@ export class CouponsService {
       if (!coupon)
         throw new HttpException('Coupon not found', HttpStatus.NOT_FOUND);
 
+      const usageCount = await this.couponRedemptionRepository.count({ where: { coupon: { id } } });
+      if (usageCount > 0) 
+        throw new HttpException('Cannot delete this coupon because it has been used by customers. You can only update its status to INACTIVE.', HttpStatus.BAD_REQUEST);
+    
+
       await manager.delete(Coupon, coupon);
-      return { deletedId: id };
+      return { 
+        deleted: true, 
+        id,
+        message: 'Coupon deleted successfully.' 
+      };
     });
   }
 
@@ -257,39 +267,133 @@ export class CouponsService {
     };
   }  
 
-  async apply(code: string, orderId: number, userId: number) {
-    return await this.dataSource.transaction(async (manager) => {
-      console.log(userId)
-      const validation = await this.validate(code, userId);
-      if (!validation.valid) throw new HttpException("Coupon not valid", HttpStatus.BAD_REQUEST);
+  async calculateDiscount(
+    code: string,
+    userId: number,
+    orderItems: Array<{ variantId: number; quantity: number; price: number; product: any; category?: any }>,
+    shippingFee: number,
+  ) {
+    const now = new Date();
 
-      const coupon = await manager.findOne(Coupon, {where: { code }, relations: ['targets']});
+    // 1. Find coupon
+    const coupon = await this.couponRepository.findOne({
+      where: { code },
+      relations: ['targets'],
+    });
+    if (!coupon) throw new HttpException('Coupon not found', HttpStatus.NOT_FOUND);
+
+    // 2. Validate basic conditions
+    if (coupon.status !== CouponStatus.ACTIVE)
+      throw new HttpException('Coupon is not active', HttpStatus.BAD_REQUEST);
+    if (now < coupon.startDate)
+      throw new HttpException('Coupon has not started yet', HttpStatus.BAD_REQUEST);
+    if (now > coupon.endDate)
+      throw new HttpException('Coupon has expired', HttpStatus.BAD_REQUEST);
+
+    // 3. Check usage limits
+    const [totalUsed, usedByUser] = await Promise.all([
+      this.couponRedemptionRepository.count({ where: { coupon: { id: coupon.id }, isRedeemed: true } }),
+      this.couponRedemptionRepository.count({ where: { coupon: { id: coupon.id }, user: { id: userId }, isRedeemed: true } }),
+    ]);
+    if (coupon.usageLimit && totalUsed >= coupon.usageLimit)
+      throw new HttpException('Coupon usage limit reached', HttpStatus.BAD_REQUEST);
+    if (coupon.usageLimitPerUser && usedByUser >= coupon.usageLimitPerUser)
+      throw new HttpException('You have already used this coupon', HttpStatus.BAD_REQUEST);
+
+    // 4. Determine applicable items based on targets
+    const allTarget = coupon.targets?.some((t) => t.targetType === TargetType.ALL);
+    const applicableItems = allTarget
+      ? orderItems
+      : orderItems.filter((item) => {
+          return coupon.targets?.some(
+            (t) =>
+              (t.targetType === TargetType.PRODUCT && t.targetId === item.product.id) ||
+              (t.targetType === TargetType.CATEGORY && t.targetId === item.category?.id),
+          );
+        });
+
+    if (!applicableItems.length)
+      throw new HttpException('Coupon not applicable to any items in this order', HttpStatus.BAD_REQUEST);
+
+    // 5. Calculate subtotal of applicable items
+    const applicableSubtotal = applicableItems.reduce((sum, item) => {
+      return sum + Number(item.price) * item.quantity;
+    }, 0);
+
+    // 6. Calculate total order amount
+    const orderSubtotal = orderItems.reduce((sum, item) => {
+      return sum + Number(item.price) * item.quantity;
+    }, 0);
+
+    // 7. Check minimum order amount (based on total order, not just applicable items)
+    if (coupon.minOrderAmount && orderSubtotal < Number(coupon.minOrderAmount))
+      throw new HttpException(
+        `Minimum order amount of ${coupon.minOrderAmount} not reached. Current: ${orderSubtotal}`,
+        HttpStatus.BAD_REQUEST,
+      );
+
+    // 8. Calculate discount
+    let discountAmount = 0;
+    if (coupon.discountType === DiscountType.PERCENTAGE) {
+      // Percentage discount applies to applicable items only
+      discountAmount = applicableSubtotal * (Number(coupon.discountValue) / 100);
+    } else if (coupon.discountType === DiscountType.FIXED_AMOUNT) {
+      // Fixed discount
+      discountAmount = Number(coupon.discountValue || 0);
+    } else if (coupon.discountType === DiscountType.FREE_SHIPPING) {
+      // Free shipping - discount equals shipping fee
+      discountAmount = shippingFee;
+    }
+
+    // 9. Cap discount at order subtotal + shipping fee
+    const maxDiscount = orderSubtotal + shippingFee;
+    if (discountAmount > maxDiscount) discountAmount = maxDiscount;
+
+    return {
+      discountAmount: Math.round(discountAmount),
+      applicableItemsCount: applicableItems.length,
+      couponId: coupon.id,
+    };
+  }
+
+  async apply(code: string, orderId: number, userId: number, transactionManager?: EntityManager) {
+    const execute = async (manager: EntityManager) => {
+      // 1. Find coupon
+      const coupon = await manager.findOne(Coupon, { where: { code }, relations: ['targets'] });
       if (!coupon) throw new HttpException('Coupon not found', HttpStatus.NOT_FOUND);
 
-      // check coupon co apply cho order chua
+      // 2. Check if already applied
       const existed = await manager.findOne(CouponRedemption, {
-        where: { coupon: {id: coupon.id}, order: { id: orderId }, user: { id: userId } },
-      })
-      if (existed) throw new HttpException('Coupon already applied', HttpStatus.BAD_REQUEST);
+        where: { coupon: { id: coupon.id }, order: { id: orderId }, user: { id: userId } },
+      });
+      if (existed) throw new HttpException('Coupon already applied to this order', HttpStatus.BAD_REQUEST);
 
+      // 3. Create redemption record
       const redemption = manager.create(CouponRedemption, {
         coupon,
         user: { id: userId },
         order: { id: orderId },
         isRedeemed: false,
         appliedAt: new Date(),
-      })
+      });
+
       await manager.save(CouponRedemption, redemption);
 
       return {
         applied: true,
         code: coupon.code,
-        discountAmount: validation.discountAmount,
-        totalAmount: validation.totalAmount,
-        applicableItemsCount: validation.applicableItemsCount,
         message: `Coupon ${coupon.code} applied successfully.`,
       };
-    })
+    };
+
+    // Use provided transaction manager or create new one
+    if (transactionManager) {
+      return await execute(transactionManager);
+    } else {
+      return await this.dataSource.transaction(async (newManager) => {
+        return await execute(newManager);
+      });
+    }
   }
 
   async redeem(code: string, orderId: number, userId: number) {
@@ -388,6 +492,212 @@ export class CouponsService {
         limit,
       },
       data,
+    };
+  }
+
+  async getApplicableCouponsForCheckout(
+    userId: number,
+    items: Array<{ variantId: number; quantity: number }>
+  ) {
+    const now = new Date();
+
+    // 1. Validate input
+    if (!items || items.length === 0) {
+      return {
+        total: 0,
+        cartTotal: 0,
+        data: [],
+      };
+    }
+
+    // 2. Lấy tất cả variants với relations product và category
+    const variantIds = items.map(item => item.variantId);
+    const variants = await this.productVariantRepository.find({
+      where: { id: In(variantIds) },
+      relations: ['product', 'product.category'],
+    });
+
+    // 3. Tạo map để tra cứu nhanh variant theo ID
+    const variantMap = new Map(variants.map(v => [v.id, v]));
+
+    // 4. Tính tổng giỏ hàng và validate items
+    let cartTotal = 0;
+    const validItems: Array<{
+      variant: any;
+      quantity: number;
+      productId: number;
+      categoryId: number | undefined;
+      price: number;
+    }> = [];
+
+    for (const item of items) {
+      const variant = variantMap.get(item.variantId);
+      if (!variant || !variant.product) {
+        // Skip invalid variants
+        continue;
+      }
+
+      const price = Number(variant.product.price);
+      cartTotal += price * item.quantity;
+
+      validItems.push({
+        variant,
+        quantity: item.quantity,
+        productId: variant.product.id,
+        categoryId: variant.product.category?.id,
+        price,
+      });
+    }
+
+    if (validItems.length === 0) {
+      return {
+        total: 0,
+        cartTotal: 0,
+        data: [],
+      };
+    }
+
+    // 5. Lấy danh sách product IDs và category IDs
+    const productIdsInCart = new Set(validItems.map(i => i.productId));
+    const categoryIdsInCart = new Set(
+      validItems.map(i => i.categoryId).filter((id): id is number => id !== undefined)
+    );
+
+    // 4. Query tất cả coupons đang active và trong thời gian hiệu lực
+    const coupons = await this.couponRepository
+      .createQueryBuilder('coupon')
+      .leftJoinAndSelect('coupon.targets', 'target')
+      .where('coupon.status = :status', { status: CouponStatus.ACTIVE })
+      .andWhere('coupon.startDate <= :now', { now })
+      .andWhere('coupon.endDate >= :now', { now })
+      // Fix logic: usageLimit = 0 nghĩa là không giới hạn, NULL cũng vậy
+      .andWhere(
+        '(coupon.usageLimit IS NULL OR coupon.usageLimit = 0 OR (coupon.usageCount IS NOT NULL AND coupon.usageCount < coupon.usageLimit))'
+      )
+      .getMany();
+
+    // 5. Lấy usage count của user cho TẤT CẢ coupons trong 1 query (thay vì N queries)
+    const couponIds = coupons.map(c => c.id);
+    const userRedemptions = await this.couponRedemptionRepository
+      .createQueryBuilder('redemption')
+      .select('redemption.couponId', 'couponId')
+      .addSelect('COUNT(*)', 'count')
+      .where('redemption.userId = :userId', { userId })
+      .andWhere('redemption.couponId IN (:...couponIds)', { couponIds })
+      .andWhere('redemption.isRedeemed = :isRedeemed', { isRedeemed: true })
+      .groupBy('redemption.couponId')
+      .getRawMany();
+
+    // 6. Tạo map để tra cứu nhanh user usage count
+    const userUsageMap = new Map<number, number>();
+    userRedemptions.forEach((r: any) => {
+      userUsageMap.set(Number(r.couponId), Number(r.count));
+    });
+
+    // 7. Filter và tính discount cho từng coupon
+    const applicableCoupons: Array<{
+      id: number;
+      code: string;
+      name: string;
+      description: string;
+      discountType: DiscountType;
+      discountValue: number;
+      minOrderAmount: number;
+      startDate: Date;
+      endDate: Date;
+      previewDiscount: number;
+      canApply: boolean;
+      usageLimitPerUser: number;
+      userUsedCount: number;
+    }> = [];
+
+    for (const coupon of coupons) {
+      // Check usageLimitPerUser
+      if (coupon.usageLimitPerUser) {
+        const userUsageCount = userUsageMap.get(coupon.id) || 0;
+        if (userUsageCount >= coupon.usageLimitPerUser) continue;
+      }
+
+      // Check minimum order amount
+      if (coupon.minOrderAmount && cartTotal < Number(coupon.minOrderAmount)) {
+        continue;
+      }
+
+      // Check target validity
+      const targets = coupon.targets || [];
+      const hasAllTarget = targets.length === 0 || targets.some(t => t.targetType === TargetType.ALL);
+
+      let isTargetValid = false;
+      if (hasAllTarget) {
+        isTargetValid = true;
+      } else {
+        const hasProductMatch = targets.some(
+          t => t.targetType === TargetType.PRODUCT && t.targetId !== null && productIdsInCart.has(t.targetId)
+        );
+        const hasCategoryMatch = targets.some(
+          t => t.targetType === TargetType.CATEGORY && t.targetId !== null && categoryIdsInCart.has(t.targetId)
+        );
+        isTargetValid = hasProductMatch || hasCategoryMatch;
+      }
+
+      if (!isTargetValid) continue;
+
+      // Calculate estimated discount
+      const applicableItems = hasAllTarget
+        ? validItems
+        : validItems.filter(item => {
+            const pId = item.productId;
+            const cId = item.categoryId;
+            return targets.some(
+              t =>
+                (t.targetType === TargetType.PRODUCT && t.targetId !== null && t.targetId === pId) ||
+                (t.targetType === TargetType.CATEGORY && t.targetId !== null && cId !== undefined && t.targetId === cId)
+            );
+          });
+
+      let estimatedDiscount = 0;
+
+      if (coupon.discountType === DiscountType.PERCENTAGE) {
+        const applicableSubtotal = applicableItems.reduce(
+          (sum: number, item) => sum + item.price * item.quantity,
+          0
+        );
+        estimatedDiscount = applicableSubtotal * (Number(coupon.discountValue) / 100);
+      } else if (coupon.discountType === DiscountType.FIXED_AMOUNT) {
+        estimatedDiscount = Number(coupon.discountValue);
+      } else if (coupon.discountType === DiscountType.FREE_SHIPPING) {
+        estimatedDiscount = 30000; // Fixed shipping fee
+      }
+
+      // Cap discount at cart total
+      if (estimatedDiscount > cartTotal) {
+        estimatedDiscount = cartTotal;
+      }
+
+      applicableCoupons.push({
+        id: coupon.id,
+        code: coupon.code,
+        name: coupon.name,
+        description: coupon.description,
+        discountType: coupon.discountType,
+        discountValue: coupon.discountValue,
+        minOrderAmount: coupon.minOrderAmount,
+        startDate: coupon.startDate,
+        endDate: coupon.endDate,
+        previewDiscount: Math.round(estimatedDiscount),
+        canApply: true,
+        usageLimitPerUser: coupon.usageLimitPerUser,
+        userUsedCount: userUsageMap.get(coupon.id) || 0,
+      });
+    }
+
+    // 8. Sắp xếp: Ưu tiên giảm giá nhiều nhất lên đầu
+    applicableCoupons.sort((a, b) => b.previewDiscount - a.previewDiscount);
+
+    return {
+      total: applicableCoupons.length,
+      cartTotal,
+      data: applicableCoupons,
     };
   }
 }

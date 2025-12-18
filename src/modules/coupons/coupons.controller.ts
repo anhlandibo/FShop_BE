@@ -10,6 +10,7 @@ import { ApiBadRequestResponse, ApiBearerAuth, ApiCreatedResponse, ApiNotFoundRe
 import { ApplyCouponDto } from './dto/apply-coupon.dto';
 import { RedeemCouponDto } from './dto/redeem-coupon.dto';
 import { MyCouponsQueryDto } from './dto/my-coupons-query.dto';
+import { CheckApplicableCouponsDto } from './dto/check-applicable-coupons.dto';
 
 @Controller('coupons')
 export class CouponsController {
@@ -37,6 +38,21 @@ export class CouponsController {
   getMyCoupons(@Req() req: Request, @Query() query: MyCouponsQueryDto) {
     const { id } = req['user'];
     return this.couponsService.getMyCoupons(id, query);
+  }
+
+  @Post('check-available')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get applicable coupons for checkout based on items' })
+  @ApiOkResponse({
+    description: 'Returns list of coupons that can be applied to the provided items with estimated discount'
+  })
+  getApplicableCouponsForCheckout(
+    @Req() req: Request,
+    @Body() dto: CheckApplicableCouponsDto
+  ) {
+    const { id } = req['user'];
+    return this.couponsService.getApplicableCouponsForCheckout(id, dto.items);
   }
 
   @Get(':id')

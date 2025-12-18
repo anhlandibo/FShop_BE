@@ -8,6 +8,9 @@ import { RefreshTokenDto } from './dto/refresh-dto';
 import { ApiOperation, ApiUnauthorizedResponse } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { Auth } from './entities/auth.entity';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -101,14 +104,14 @@ export class AuthController {
   }
 
   @Post('logout')
-  @UseGuards(AuthGuard('jwt')) // tránh CSRF đơn giản bằng yêu cầu access token còn hạn
+  @UseGuards(AuthGuard('jwt')) 
   @ApiOperation({ summary: 'Logout current session' })
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const refreshToken = (req as any).cookies?.['refresh_token'] as string | undefined;
     await this.authService.logout(refreshToken, req);
-    res.clearCookie('access_token', { httpOnly: true, sameSite: 'lax', secure: false });
-    res.clearCookie('refresh_token', { httpOnly: true, sameSite: 'lax', secure: false });
-    return { message: 'Logged out' };
+    res.clearCookie('access_token', { httpOnly: true, sameSite: 'lax', secure: false, path: '/' });
+    res.clearCookie('refresh_token', { httpOnly: true, sameSite: 'lax', secure: false, path: '/' });
+    return { message: 'Logged out', timestamp: new Date().toISOString() };
   }
 
   @Post('logout-all')
@@ -122,6 +125,26 @@ export class AuthController {
     return { message: 'Logged out from all devices' };
   }
 
+  @Post('change-password')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({ summary: 'Change password' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  async changePassword(@Req() req: Request, @Body() changePasswordDto: ChangePasswordDto) {
+    const { id } = req['user'];
+    return this.authService.changePassword(id, changePasswordDto);
+  }
+
+  @Post('forgot-password')
+  @ApiOperation({ summary: 'Step 1: Request password reset email' })
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(forgotPasswordDto);
+  }
+
+  @Post('reset-password')
+  @ApiOperation({ summary: 'Step 2: Submit new password with token' })
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(resetPasswordDto);
+  }
 
 
 }
