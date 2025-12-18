@@ -67,7 +67,8 @@ export class AuthController {
   @ApiOperation({ summary: 'Get user information' })
   me(@Req() req: Request) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
-    return this.authService.getMyProfile(req['user'].email);
+    const {id} = req['user'];
+    return this.authService.getMyProfile(id);
   }
 
   @Get('google')
