@@ -13,12 +13,13 @@ import { OrdersCronService } from './orders.cron.service';
 import { CouponsModule } from '../coupons/coupons.module';
 import { CouponRedemption } from '../coupons/entities/coupon-redemption.entity';
 import { StockModule } from '../stock/stock.module';
+import { Review } from '../reviews/entities/review.entity';
 
 @Module({
   controllers: [OrdersController],
   providers: [OrdersService, OrdersCronService],
   imports: [
-    TypeOrmModule.forFeature([Order, OrderItem, Address, ProductVariant, Cart, CartItem, Payment, CouponRedemption]),
+    TypeOrmModule.forFeature([Order, OrderItem, Address, ProductVariant, Cart, CartItem, Payment, CouponRedemption, Review]),
     NotificationsModule,
     CouponsModule,
     StockModule,

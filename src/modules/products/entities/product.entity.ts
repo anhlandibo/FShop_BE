@@ -49,7 +49,4 @@ export class Product {
 
   @OneToMany(() => Wishlist, wishlist => wishlist.product)
   wishlist: Wishlist[];
-
-  @OneToMany(() => Review, (review) => review.product)
-  reviews: Review[];
 }
