@@ -27,6 +27,7 @@ import { PaymentStatus } from 'src/constants/payment-status.enum';
 import { CouponsService } from '../coupons/coupons.service';
 import { CouponRedemption } from '../coupons/entities/coupon-redemption.entity';
 import { StockService } from '../stock/stock.service';
+import { Review } from '../reviews/entities/review.entity';
 
 @Injectable()
 export class OrdersService {
@@ -38,6 +39,8 @@ export class OrdersService {
     private readonly variantRepo: Repository<ProductVariant>,
     @InjectRepository(CouponRedemption)
     private readonly couponRedemptionRepo: Repository<CouponRedemption>,
+    @InjectRepository(Review)
+    private readonly reviewRepository: Repository<Review>,
     @InjectDataSource() private readonly dataSource: DataSource,
     private notiService: NotificationsService,
     private couponsService: CouponsService,
@@ -255,7 +258,41 @@ export class OrdersService {
       ...(page && limit && { take: limit, skip: (page - 1) * limit }),
       order: { [sortBy]: sortOrder },
     });
-    const response = { pagination: { total, page, limit }, data };
+
+    // Get all order IDs for review checking
+    const orderIds = data.map(order => order.id);
+
+    // Query all reviews for these orders by this user
+    let reviews: Review[] = [];
+    if (orderIds.length > 0) {
+      reviews = await this.reviewRepository
+        .createQueryBuilder('review')
+        .innerJoin('review.order', 'order')
+        .innerJoin('review.variant', 'variant')
+        .innerJoin('review.user', 'user')
+        .where('user.id = :userId', { userId })
+        .andWhere('order.id IN (:...orderIds)', { orderIds })
+        .select(['review.id', 'order.id', 'variant.id'])
+        .getMany();
+    }
+
+    // Create a map for quick lookup: key = "orderId-variantId", value = true
+    const reviewMap = new Map<string, boolean>();
+    reviews.forEach(review => {
+      const key = `${review.order.id}-${review.variant.id}`;
+      reviewMap.set(key, true);
+    });
+
+    // Add isReviewed field to each order item
+    const enhancedData = data.map(order => ({
+      ...order,
+      items: order.items.map(item => ({
+        ...item,
+        isReviewed: reviewMap.has(`${order.id}-${item.variant.id}`),
+      })),
+    }));
+
+    const response = { pagination: { total, page, limit }, data: enhancedData };
     console.log('data lay tu DB');
     return response;
   }

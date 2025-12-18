@@ -3,8 +3,8 @@ import { IsDecimal, Min, Max } from "class-validator";
 import { IntegerRequired, NumberRequired, StringOptional } from "src/decorators/dto.decorator";
 
 export class CreateReviewDto {
-  @IntegerRequired('Product ID')
-  productId: number
+  @IntegerRequired('Variant ID')
+  variantId: number
 
   @IntegerRequired('Order ID')
   orderId: number

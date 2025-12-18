@@ -40,7 +40,7 @@ export class StockController {
 
   @Get('logs')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.Admin)
+  @Roles(Role.Admin, Role.User)
   @ApiOperation({ summary: 'Get all stock logs with filtering (Admin only)' })
   @ApiResponse({ status: 200, description: 'Stock logs retrieved successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
