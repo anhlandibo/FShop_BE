@@ -9,6 +9,7 @@ import { plainToClass } from 'class-transformer';
 import { ProductQueryDto } from 'src/dto/productQuery.dto';
 import { ApiConflictResponse, ApiNotFoundResponse, ApiOperation } from '@nestjs/swagger';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { ProductVariantQueryDto } from './dto/variant-query.dto';
 
 @Controller('products')
 export class ProductsController {
@@ -42,6 +43,12 @@ export class ProductsController {
   @ApiOperation({ summary: 'Get all products' })
   findAll(@Query() query: ProductQueryDto) {
     return this.productsService.findAll(query);
+  }
+
+  @Get('variants') 
+  @ApiOperation({ summary: 'Get all variants (with search, filter, pagination)' })
+  findAllVariants(@Query() query: ProductVariantQueryDto) {
+    return this.productsService.findAllVariants(query);
   }
 
   @Get(':id')
@@ -88,4 +95,6 @@ export class ProductsController {
   getRelatedProducts(@Param('id') id: number) {
     return this.productsService.getRelatedProducts(id);
   }
+
+  
 }
