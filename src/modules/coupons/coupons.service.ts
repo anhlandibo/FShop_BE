@@ -253,7 +253,7 @@ export class CouponsService {
     else if (coupon.discountType === DiscountType.FIXED_AMOUNT) 
       discountAmount = Number(coupon.discountValue || 0);
     else if (coupon.discountType === DiscountType.FREE_SHIPPING) 
-      discountAmount = 30000;
+      discountAmount = 30;
     
 
     if (discountAmount > totalAmount) discountAmount = totalAmount;
@@ -666,7 +666,7 @@ export class CouponsService {
       } else if (coupon.discountType === DiscountType.FIXED_AMOUNT) {
         estimatedDiscount = Number(coupon.discountValue);
       } else if (coupon.discountType === DiscountType.FREE_SHIPPING) {
-        estimatedDiscount = 30000; // Fixed shipping fee
+        estimatedDiscount = 30; // Fixed shipping fee
       }
 
       // Cap discount at cart total

@@ -55,7 +55,7 @@ export class OrdersService {
       case ShippingMethod.EXPRESS:
         return 20;
       default:
-        return 30000;
+        return 30;
     }
   }
 

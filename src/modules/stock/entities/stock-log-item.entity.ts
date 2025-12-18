@@ -16,5 +16,5 @@ export class StockLogItem {
   variant: ProductVariant;
 
   @Column()
-  quantity: number; // Số lượng thay đổi (+ hoặc -)
+  quantity: number; 
 }
