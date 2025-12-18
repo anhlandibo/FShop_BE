@@ -28,6 +28,7 @@ import { CouponsService } from '../coupons/coupons.service';
 import { CouponRedemption } from '../coupons/entities/coupon-redemption.entity';
 import { StockService } from '../stock/stock.service';
 import { Review } from '../reviews/entities/review.entity';
+import { StockLogType } from 'src/constants/stock-log-type.enum';
 
 @Injectable()
 export class OrdersService {
@@ -111,12 +112,13 @@ export class OrdersService {
 
       // 5. Process order items and calculate subtotal
       let subtotal = 0;
-      const orderItemsData: Array<{ variantId: number; quantity: number; price: number; product: any; category?: any }> = [];
+      const orderItemsData: any[] = [];
+      const stockLogItems: { variant: ProductVariant; quantity: number }[] = [];
 
       for (const itemDto of items) {
         const variant = await manager.findOne(ProductVariant, {
           where: { id: itemDto.variantId },
-          relations: ['product', 'product.category'],
+          lock: { mode: 'pessimistic_write' }
         });
 
         if (!variant) {
@@ -125,6 +127,18 @@ export class OrdersService {
             HttpStatus.NOT_FOUND,
           );
         }
+
+        const variantWithProduct = await manager.findOne(ProductVariant, {
+            where: { id: itemDto.variantId },
+            relations: ['product', 'product.category'],
+        });
+        if (!variantWithProduct) {
+             throw new HttpException(
+                `Variant ID ${itemDto.variantId} not found`,
+                HttpStatus.NOT_FOUND,
+             );
+        }
+        variant.product = variantWithProduct.product;
 
         // B. Check stock
         if (itemDto.quantity > variant.remaining)
@@ -137,27 +151,21 @@ export class OrdersService {
         variant.remaining -= itemDto.quantity;
         await manager.save(ProductVariant, variant);
 
-        // Log stock out for audit trail
-        await this.stockService.logStockOut(
-          manager,
-          variant,
-          itemDto.quantity,
-          `Xuất kho cho đơn hàng #${order.id} - ${variant.product.name}`,
-          userId,
-        );
+        stockLogItems.push({
+          variant: variant,
+          quantity: itemDto.quantity
+        });
 
-        // D. Create order item
         const orderItem = manager.create(OrderItem, {
           order,
           variant: variant,
           quantity: itemDto.quantity,
-          price: variant.product.price, // Lấy giá hiện tại từ DB
+          price: variant.product.price, 
         });
         await manager.save(orderItem);
 
         subtotal += itemDto.quantity * Number(orderItem.price);
 
-        // Store order item data for coupon calculation
         orderItemsData.push({
           variantId: variant.id,
           quantity: itemDto.quantity,
@@ -166,7 +174,6 @@ export class OrdersService {
           category: variant.product.category,
         });
 
-        // E. Clean up cart if applicable
         if (cart && cart.items.length > 0) {
           const cartItem = cart.items.find(
             (ci) => ci.variant.id === variant.id,
@@ -184,12 +191,20 @@ export class OrdersService {
           }
         }
       }
+      
+      if (stockLogItems.length > 0) {
+        await this.stockService.createLog(
+          manager,
+          StockLogType.OUT,
+          `Export stock for order #${order.id}`,
+          stockLogItems,
+          userId,
+        );
+      }
 
-      // 6. Calculate discount if coupon provided
       let discountAmount = 0;
       if (couponCode) {
         try {
-          // Calculate discount based on actual order items
           const couponResult = await this.couponsService.calculateDiscount(
             couponCode,
             userId,
@@ -198,7 +213,6 @@ export class OrdersService {
           );
           discountAmount = Number(couponResult.discountAmount) || 0;
 
-          // Create coupon redemption record
           await this.couponsService.apply(
             couponCode,
             order.id,
@@ -206,7 +220,6 @@ export class OrdersService {
             manager,
           );
         } catch (error: any) {
-          // If coupon fails, rollback the transaction
           throw new HttpException(
             error?.message || 'Failed to apply coupon',
             HttpStatus.BAD_REQUEST,
@@ -393,26 +406,33 @@ export class OrdersService {
       }
 
       // Handle CANCELED status - restore stock and remove coupon redemption
-      if (next === OrderStatus.CANCELED) {
-        // Restore stock and log audit trail
+      if (next === OrderStatus.CANCELED || next === OrderStatus.RETURNED) {
+        const stockLogItems: { variant: ProductVariant; quantity: number }[] = [];
         for (const it of order.items) {
           const variant = await manager.findOne(ProductVariant, {
             where: { id: it.variant.id },
             relations: ['product'],
+            lock: { mode: 'pessimistic_write' }
           });
           if (variant) {
             variant.remaining = Number(variant.remaining) + Number(it.quantity);
             await manager.save(variant);
-
-            // Log stock restoration for audit trail
-            await this.stockService.logStockIn(
-              manager,
-              variant,
-              Number(it.quantity),
-              `Hoàn trả kho do hủy đơn #${order.id}${actor.reason ? ` - Lý do: ${actor.reason}` : ''} - ${variant.product.name}`,
-              actor.id,
-            );
+            stockLogItems.push({ variant, quantity: Number(it.quantity) });
           }
+        }
+
+        if (stockLogItems.length > 0) {
+          const reasonNote = next === OrderStatus.CANCELED 
+            ? `Return products for shop for order #${order.id}` 
+            : `Return products for order #${order.id}`;
+            
+          await this.stockService.createLog(
+            manager,
+            StockLogType.IN,
+            `${reasonNote}${actor.reason ? ` - Reason: ${actor.reason}` : ''}`,
+            stockLogItems,
+            actor.id
+          );
         }
 
         // Remove coupon redemption if not yet redeemed
@@ -428,30 +448,6 @@ export class OrdersService {
             await manager.remove(redemption);
             console.log(
               `Removed unredeemed coupon ${order.couponCode} for canceled order #${order.id}`,
-            );
-          }
-        }
-      }
-
-      // Handle RETURNED status - restore stock when customer returns items
-      if (next === OrderStatus.RETURNED) {
-        // Restore stock and log audit trail
-        for (const it of order.items) {
-          const variant = await manager.findOne(ProductVariant, {
-            where: { id: it.variant.id },
-            relations: ['product'],
-          });
-          if (variant) {
-            variant.remaining = Number(variant.remaining) + Number(it.quantity);
-            await manager.save(variant);
-
-            // Log stock restoration for audit trail
-            await this.stockService.logStockIn(
-              manager,
-              variant,
-              Number(it.quantity),
-              `Hoàn trả kho do khách trả hàng - Đơn #${order.id} - ${variant.product.name}`,
-              actor.id,
             );
           }
         }

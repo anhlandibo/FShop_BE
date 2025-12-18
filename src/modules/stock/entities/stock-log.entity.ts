@@ -5,23 +5,18 @@ import {
   CreateDateColumn,
   ManyToOne,
   Index,
+  OneToMany,
 } from 'typeorm';
 import { ProductVariant } from '../../products/entities/product-variant.entity';
 import { StockLogType } from '../../../constants/stock-log-type.enum';
 import { User } from '../../users/entities/user.entity';
+import { StockLogItem } from './stock-log-item.entity';
 
 @Entity('stock_logs')
-@Index(['variant', 'createdAt'])
 @Index(['type', 'createdAt'])
 export class StockLog {
   @PrimaryGeneratedColumn()
   id: number;
-
-  @ManyToOne(() => ProductVariant, { eager: true })
-  variant: ProductVariant;
-
-  @Column()
-  quantity: number;
 
   @Column({
     type: 'enum',
@@ -37,4 +32,7 @@ export class StockLog {
 
   @CreateDateColumn()
   createdAt: Date;
+
+  @OneToMany(() => StockLogItem, (item) => item.stockLog, { cascade: true })
+  items: StockLogItem[];
 }
