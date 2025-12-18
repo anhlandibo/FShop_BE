@@ -36,7 +36,7 @@ export class ProductsService {
     @InjectRedis() private readonly redis: Redis,
     private dataSource: DataSource,
     private readonly cloudinaryService: CloudinaryService,
-    private readonly httpService: HttpService
+    private readonly httpService: HttpService,
   ) {}
 
   async create(
@@ -156,8 +156,9 @@ export class ProductsService {
       );
       const savedImages = await manager.save(productImages);
 
-      for (const img of savedImages) 
-        if (img.imageUrl) this.syncImageToVectorDB(img.id, savedProduct.id, img.imageUrl);
+      for (const img of savedImages)
+        if (img.imageUrl)
+          this.syncImageToVectorDB(img.id, savedProduct.id, img.imageUrl);
 
       return plainToInstance(Product, {
         ...savedProduct,
@@ -180,30 +181,65 @@ export class ProductsService {
       minPrice,
       maxPrice,
     } = query;
+
     const queryBuilder = this.productRepository
       .createQueryBuilder('product')
-      .leftJoinAndSelect('product.variants', 'variant', 'variant.isActive = :isActive', { isActive: true })
+
+      // product
       .leftJoinAndSelect('product.images', 'image')
       .leftJoinAndSelect('product.brand', 'brand')
       .leftJoinAndSelect('product.category', 'category')
-      .leftJoin('category.attributeCategories', 'attributeCategory');
-    if (search) 
-      queryBuilder.andWhere('(product.name LIKE :search OR product.description LIKE :search)', {search: `%${search}%`});
-    
 
-    if (categoryId)
+      // variants
+      .leftJoinAndSelect(
+        'product.variants',
+        'variant',
+        'variant.isActive = :isActive',
+        { isActive: true },
+      )
+
+      // 🔥 JOIN SÂU CHO VARIANT
+      .leftJoinAndSelect(
+        'variant.variantAttributeValues',
+        'variantAttributeValue',
+      )
+      .leftJoinAndSelect(
+        'variantAttributeValue.attributeCategory',
+        'attributeCategory',
+      )
+      .leftJoinAndSelect('attributeCategory.attribute', 'attribute');
+
+    // ================= FILTER =================
+
+    if (search) {
+      queryBuilder.andWhere(
+        '(product.name LIKE :search OR product.description LIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    if (categoryId) {
       queryBuilder.andWhere('category.id = :categoryId', { categoryId });
+    }
 
-    if (brandIds && brandIds.length > 0)
+    if (brandIds?.length) {
       queryBuilder.andWhere('brand.id IN (:...brandIds)', { brandIds });
+    }
 
-    if (attributeCategoryIds?.length)
-      queryBuilder.andWhere('attributeCategory.id IN (:...attributeCategoryIds)', { attributeCategoryIds });
+    if (attributeCategoryIds?.length) {
+      queryBuilder.andWhere(
+        'attributeCategory.id IN (:...attributeCategoryIds)',
+        { attributeCategoryIds },
+      );
+    }
 
-    if (minPrice)
+    if (minPrice) {
       queryBuilder.andWhere('product.price >= :minPrice', { minPrice });
-    if (maxPrice)
+    }
+
+    if (maxPrice) {
       queryBuilder.andWhere('product.price <= :maxPrice', { maxPrice });
+    }
 
     queryBuilder.orderBy(`product.${sortBy}`, sortOrder);
 
@@ -223,27 +259,33 @@ export class ProductsService {
     const product = await this.productRepository
       .createQueryBuilder('product')
       .where('product.id = :id', { id })
-      
+
       .leftJoinAndSelect(
-        'product.variants', 
-        'variant', 
-        'variant.isActive = :isActive', 
-        { isActive: true }
+        'product.variants',
+        'variant',
+        'variant.isActive = :isActive',
+        { isActive: true },
       )
-      
+
       // 2. Join các bảng con của Variant
-      .leftJoinAndSelect('variant.variantAttributeValues', 'variantAttributeValues')
-      .leftJoinAndSelect('variantAttributeValues.attributeCategory', 'attributeCategory')
+      .leftJoinAndSelect(
+        'variant.variantAttributeValues',
+        'variantAttributeValues',
+      )
+      .leftJoinAndSelect(
+        'variantAttributeValues.attributeCategory',
+        'attributeCategory',
+      )
       .leftJoinAndSelect('attributeCategory.attribute', 'attribute')
-      
+
       // 3. Join Images: Cũng nên filter isActive = true (nếu bạn có logic soft delete ảnh)
       .leftJoinAndSelect(
-        'product.images', 
-        'image', 
-        'image.isActive = :isActive', 
-        { isActive: true }
+        'product.images',
+        'image',
+        'image.isActive = :isActive',
+        { isActive: true },
       )
-      
+
       // 4. Các thông tin khác
       .leftJoinAndSelect('product.brand', 'brand')
       .leftJoinAndSelect('product.category', 'category')
@@ -302,7 +344,7 @@ export class ProductsService {
             await this.cloudinaryService
               .deleteFile(img.publicId)
               .catch(() => {});
-          
+
           imageIdsToDelete.push(img.id);
         }
 
@@ -334,9 +376,8 @@ export class ProductsService {
         }
         const savedNewImages = await manager.save(prodImgEntities);
 
-        for (const img of savedNewImages) 
+        for (const img of savedNewImages)
           this.syncImageToVectorDB(img.id, product.id, img.imageUrl);
-        
       }
 
       if (dto.variants && dto.variants.length > 0) {
@@ -389,7 +430,7 @@ export class ProductsService {
               if (ac) {
                 newAttrs.push(
                   manager.create(VariantAttributeValue, {
-                    productVariant: variantEntity, 
+                    productVariant: variantEntity,
                     attributeCategory: ac,
                   }),
                 );
@@ -444,19 +485,21 @@ export class ProductsService {
       const url = 'http://localhost:8000/search/image';
 
       const { data: aiResults } = await firstValueFrom(
-        this.httpService.post(url, formData, {headers: {...formData.getHeaders()}})
+        this.httpService.post(url, formData, {
+          headers: { ...formData.getHeaders() },
+        }),
       );
 
       if (!aiResults || aiResults.length === 0) return [];
 
       const productIds = aiResults.map((item: any) => item.product_id);
-      
+
       const products = await this.productRepository.find({
-        where: { 
+        where: {
           id: In(productIds),
-          isActive: true 
+          isActive: true,
         },
-        relations: ['brand', 'category', 'images'], 
+        relations: ['brand', 'category', 'images'],
         select: {
           id: true,
           name: true,
@@ -465,18 +508,20 @@ export class ProductsService {
           brand: { id: true, name: true },
           category: { id: true, name: true },
           images: { id: true, imageUrl: true },
-        }
+        },
       });
 
       const sortedProducts = productIds
-        .map(id => products.find(p => p.id === id))
-        .filter(p => p !== undefined);
+        .map((id) => products.find((p) => p.id === id))
+        .filter((p) => p !== undefined);
 
       return sortedProducts;
-    }
-    catch (error) {
+    } catch (error) {
       console.error('AI Service Error:', error.message);
-      throw new HttpException('Image search service unavailable', HttpStatus.SERVICE_UNAVAILABLE);
+      throw new HttpException(
+        'Image search service unavailable',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
     }
   }
 
@@ -487,9 +532,11 @@ export class ProductsService {
         product_id: productId,
         image_url: imageUrl,
       };
-      this.httpService.post('http://localhost:8000/vectors/upsert', payload).subscribe({
-        error: (err) => console.error('Sync Vector Error:', err.message),
-      });
+      this.httpService
+        .post('http://localhost:8000/vectors/upsert', payload)
+        .subscribe({
+          error: (err) => console.error('Sync Vector Error:', err.message),
+        });
     } catch (e) {
       console.error('Sync Vector Failed', e);
     }
@@ -499,46 +546,51 @@ export class ProductsService {
     if (!imageIds.length) return;
     try {
       const payload = { image_ids: imageIds };
-      this.httpService.post('http://localhost:8000/vectors/delete', payload).subscribe({
-        error: (err) => console.error('Delete Vector Error:', err.message),
-      });
+      this.httpService
+        .post('http://localhost:8000/vectors/delete', payload)
+        .subscribe({
+          error: (err) => console.error('Delete Vector Error:', err.message),
+        });
     } catch (e) {
       console.error('Delete Vector Failed', e);
     }
   }
 
   async getRelatedProducts(id: number) {
-  const currentProduct = await this.productRepository.findOne({
-    where: { id },
-    relations: ['category'], 
-  });
+    const currentProduct = await this.productRepository.findOne({
+      where: { id },
+      relations: ['category'],
+    });
 
-  if (!currentProduct) throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+    if (!currentProduct)
+      throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
 
-  const relatedProducts = await this.productRepository
-    .createQueryBuilder('product')
-    .where('product.category.id = :categoryId', { categoryId: currentProduct.category.id })
-    .andWhere('product.id != :id', { id }) 
-    .andWhere('product.isActive = :isActive', { isActive: true }) 
-    .leftJoinAndSelect(
-      'product.variants',
-      'variant',
-      'variant.isActive = :isActive',
-      { isActive: true }
-    )
-    .leftJoinAndSelect(
-      'product.images',
-      'image',
-      'image.isActive = :isActive',
-      { isActive: true }
-    )
-    .leftJoinAndSelect('product.brand', 'brand')
-    .leftJoinAndSelect('product.category', 'category')
-    .orderBy('product.createdAt', 'DESC') 
-    .take(5) 
-    .getMany();
+    const relatedProducts = await this.productRepository
+      .createQueryBuilder('product')
+      .where('product.category.id = :categoryId', {
+        categoryId: currentProduct.category.id,
+      })
+      .andWhere('product.id != :id', { id })
+      .andWhere('product.isActive = :isActive', { isActive: true })
+      .leftJoinAndSelect(
+        'product.variants',
+        'variant',
+        'variant.isActive = :isActive',
+        { isActive: true },
+      )
+      .leftJoinAndSelect(
+        'product.images',
+        'image',
+        'image.isActive = :isActive',
+        { isActive: true },
+      )
+      .leftJoinAndSelect('product.brand', 'brand')
+      .leftJoinAndSelect('product.category', 'category')
+      .orderBy('product.createdAt', 'DESC')
+      .take(5)
+      .getMany();
 
-  return relatedProducts;
+    return relatedProducts;
   }
 
   async findAllVariants(query: ProductVariantQueryDto) {
@@ -598,6 +650,3 @@ export class ProductsService {
     };
   }
 }
-
-
-

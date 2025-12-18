@@ -49,11 +49,19 @@ export class StockController {
     return this.stockService.getStockLogs(query);
   }
 
+  @Get('summary/:variantId')
+  @ApiOperation({ summary: 'Get stock summary for a variant' })
+  @ApiResponse({ status: 200, description: 'Stock summary retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Variant not found' })
+  getStockSummary(@Param('variantId') variantId: number) {
+    return this.stockService.getStockSummary(variantId);
+  }
+
   @Get('logs/:variantId')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.Admin)
+  // @Roles(Role.Admin)
   @ApiOperation({
-    summary: 'Get stock logs for a specific variant (Admin only)',
+    summary: 'Get stock logs for a specific variant',
   })
   @ApiResponse({ status: 200, description: 'Variant stock logs retrieved successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
@@ -64,13 +72,5 @@ export class StockController {
     @Query() query: StockLogQueryDto,
   ) {
     return this.stockService.getStockLogsByVariant(variantId, query);
-  }
-
-  @Get('summary/:variantId')
-  @ApiOperation({ summary: 'Get stock summary for a variant' })
-  @ApiResponse({ status: 200, description: 'Stock summary retrieved successfully' })
-  @ApiResponse({ status: 404, description: 'Variant not found' })
-  getStockSummary(@Param('variantId') variantId: number) {
-    return this.stockService.getStockSummary(variantId);
   }
 }

@@ -104,6 +104,12 @@ export class UsersService {
     return user;
   }
 
+  async findById(id: number) {
+    const user = await this.usersRepository.findOne({ where: { id } });
+    if (!user) throw new HttpException('Not found user', HttpStatus.NOT_FOUND);
+    return user;
+  }
+
   async findAll(query: QueryDto) {
     const { page, limit, search, sortBy = 'id', sortOrder = 'DESC' } = query;
     const redisKey = hashKey('users', query);

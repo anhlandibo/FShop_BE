@@ -4,9 +4,10 @@ import { StockService } from './stock.service';
 import { StockController } from './stock.controller';
 import { StockLog } from './entities/stock-log.entity';
 import { ProductVariant } from '../products/entities/product-variant.entity';
+import { StockLogItem } from './entities/stock-log-item.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([StockLog, ProductVariant])],
+  imports: [TypeOrmModule.forFeature([StockLog, ProductVariant, StockLogItem])],
   controllers: [StockController],
   providers: [StockService],
   exports: [StockService],

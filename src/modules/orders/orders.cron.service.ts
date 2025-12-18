@@ -10,6 +10,7 @@ import { PaymentMethod } from 'src/constants/payment-method.enum';
 import { CouponRedemption } from '../coupons/entities/coupon-redemption.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StockService } from '../stock/stock.service';
+import { StockLogType } from 'src/constants/stock-log-type.enum';
 
 @Injectable()
 export class OrdersCronService {
@@ -27,16 +28,13 @@ export class OrdersCronService {
   async handleCron() {
     this.logger.debug('Running Cron Job: Scanning for stale pending PayPal orders...');
 
-    // Quy định: Chỉ auto-cancel các đơn PayPal chưa thanh toán sau 30 phút
-    // COD không cần auto-cancel vì khách trả tiền khi nhận hàng
     const timeLimit = new Date(Date.now() - 30 * 60 * 1000);
 
-    // Tìm các đơn hàng PAYPAL thỏa mãn điều kiện
     const staleOrders = await this.orderRepo.find({
       where: {
         status: OrderStatus.PENDING,
         paymentStatus: PaymentStatus.PENDING,
-        paymentMethod: PaymentMethod.PAYPAL, // CHỈ cancel PayPal, không cancel COD
+        paymentMethod: PaymentMethod.PAYPAL, 
         createdAt: LessThan(timeLimit),
       },
       relations: ['items', 'items.variant', 'items.variant.product', 'user'],
@@ -55,18 +53,16 @@ export class OrdersCronService {
     await queryRunner.startTransaction();
 
     try {
-      // 1. Hoàn trả tồn kho (Restock) và log audit trail
+      const stockLogItems: { variant: ProductVariant; quantity: number }[] = [];
       for (const item of order.items) {
-        // Cần check variant có tồn tại không (phòng trường hợp variant bị xóa mềm/cứng)
         if (item.variant) {
           const variant = await queryRunner.manager.findOne(ProductVariant, {
             where: { id: item.variant.id },
             relations: ['product'],
-            lock: { mode: 'pessimistic_write' }, // Khóa dòng này để tránh xung đột dữ liệu
+            lock: { mode: 'pessimistic_write' }
           });
 
           if (variant) {
-            // Logic cộng dồn: Ép kiểu Number để tránh cộng chuỗi
             const currentRemaining = Number(variant.remaining);
             const quantityToReturn = Number(item.quantity);
 
@@ -74,19 +70,22 @@ export class OrdersCronService {
             await queryRunner.manager.save(variant);
 
             // Log stock restoration for audit trail
-            await this.stockService.logStockIn(
-              queryRunner.manager,
-              variant,
-              quantityToReturn,
-              `Hoàn trả kho do hủy đơn #${order.id} (PayPal timeout) - ${variant.product.name}`,
-              undefined, // System action, no user
-            );
+           stockLogItems.push({ variant, quantity: quantityToReturn });
 
             this.logger.debug(
               `-> Order #${order.id}: Restocked ${quantityToReturn} to Variant #${variant.id}`,
             );
           }
         }
+      }
+
+      if (stockLogItems.length > 0) {
+        await this.stockService.createLog(
+          queryRunner.manager,
+          StockLogType.IN,
+          `Return to warehouse due to order cancellation #${order.id} (PayPal timeout)`,
+          stockLogItems,
+        );
       }
       if (order.couponCode) {
           await queryRunner.manager.delete(CouponRedemption, {
@@ -96,9 +95,8 @@ export class OrdersCronService {
           this.logger.debug(`-> Order #${order.id}: Released coupon ${order.couponCode}`);
       }
 
-      // 2. Cập nhật trạng thái đơn hàng
       order.status = OrderStatus.CANCELED;
-      order.paymentStatus = PaymentStatus.CANCELED; // Hoặc FAILED tùy enum của bạn
+      order.paymentStatus = PaymentStatus.CANCELED;
       order.note = `${order.note || ''} \n[System]: Auto-canceled due to payment timeout.`;
 
       await queryRunner.manager.save(Order, order);
