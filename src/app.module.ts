@@ -39,6 +39,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { getMailConfig } from './configs/mail.config';
 import { StockModule } from './modules/stock/stock.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -76,7 +77,8 @@ import { StockModule } from './modules/stock/stock.module';
     NotificationsModule,
     ReviewsModule,
     PaymentsModule,
-    StockModule
+    StockModule,
+    DashboardModule
   ],
   controllers: [AppController],
   providers: [
