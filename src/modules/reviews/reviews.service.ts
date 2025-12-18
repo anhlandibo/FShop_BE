@@ -44,7 +44,8 @@ export class ReviewsService {
   ) {
     return await this.dataSource.transaction(async (manager) => {
       const user = await manager.findOne(User, { where: { id: userId } });
-      if (!user) throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+      if (!user)
+        throw new HttpException('User not found', HttpStatus.NOT_FOUND);
 
       const variant = await manager.findOne(ProductVariant, {
         where: { id: createReviewDto.variantId },
@@ -59,10 +60,14 @@ export class ReviewsService {
         },
         relations: ['items', 'items.variant'],
       });
-      if (!order) throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
+      if (!order)
+        throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
 
       if (order.status !== OrderStatus.DELIVERED)
-        throw new HttpException('You can only review products after the order has been delivered', HttpStatus.BAD_REQUEST);
+        throw new HttpException(
+          'You can only review products after the order has been delivered',
+          HttpStatus.BAD_REQUEST,
+        );
 
       const orderItem = order.items?.find(
         (item) => item.variant && item.variant.id === createReviewDto.variantId,
@@ -188,10 +193,14 @@ export class ReviewsService {
         where: { id },
         relations: ['variant', 'variant.product', 'user'],
       });
-      if (!review) throw new HttpException('Review not found', HttpStatus.NOT_FOUND);
+      if (!review)
+        throw new HttpException('Review not found', HttpStatus.NOT_FOUND);
 
       if (review.status === ReviewStatus.APPROVED)
-        throw new HttpException('Review has already been approved', HttpStatus.BAD_REQUEST);
+        throw new HttpException(
+          'Review has already been approved',
+          HttpStatus.BAD_REQUEST,
+        );
 
       review.status = ReviewStatus.APPROVED;
       await manager.save(review);
@@ -215,10 +224,14 @@ export class ReviewsService {
         where: { id },
         relations: ['variant', 'variant.product', 'user'],
       });
-      if (!review) throw new HttpException('Review not found', HttpStatus.NOT_FOUND);
+      if (!review)
+        throw new HttpException('Review not found', HttpStatus.NOT_FOUND);
 
       if (review.status === ReviewStatus.REJECTED)
-        throw new HttpException('Review has already been rejected', HttpStatus.BAD_REQUEST);
+        throw new HttpException(
+          'Review has already been rejected',
+          HttpStatus.BAD_REQUEST,
+        );
 
       review.status = ReviewStatus.REJECTED;
       await manager.save(review);
@@ -239,46 +252,51 @@ export class ReviewsService {
   async vote(reviewId: number, userId: number, voteReviewDto: VoteReviewDto) {
     return await this.dataSource.transaction(async (manager) => {
       const review = await manager.findOne(Review, {
-        where: {id: reviewId},
-        relations: ['user']
-      })
-      if (!review) throw new HttpException('Review not found', HttpStatus.NOT_FOUND)
+        where: { id: reviewId },
+        relations: ['user'],
+      });
+      if (!review)
+        throw new HttpException('Review not found', HttpStatus.NOT_FOUND);
 
       if (review.user.id === userId)
-        throw new HttpException('You cannot vote for your own review', HttpStatus.BAD_REQUEST);
+        throw new HttpException(
+          'You cannot vote for your own review',
+          HttpStatus.BAD_REQUEST,
+        );
 
       const user = await manager.findOne(User, {
-        where: {id: userId}
-      })
-      if (!user) throw new HttpException('User not found', HttpStatus.NOT_FOUND)
+        where: { id: userId },
+      });
+      if (!user)
+        throw new HttpException('User not found', HttpStatus.NOT_FOUND);
 
       const existingVote = await manager.findOne(ReviewVote, {
-        where: {review: {id: reviewId}, user: {id: userId}}
-      })
+        where: { review: { id: reviewId }, user: { id: userId } },
+      });
       if (existingVote) {
-        existingVote.isHelpful = voteReviewDto.isHelpful
-        await manager.save(existingVote)
+        existingVote.isHelpful = voteReviewDto.isHelpful;
+        await manager.save(existingVote);
         return {
           message: 'Vote updated successfully',
           reviewId,
           userId,
-          isHelpful: existingVote.isHelpful
-        }
+          isHelpful: existingVote.isHelpful,
+        };
       }
 
       const newNote = manager.create(ReviewVote, {
         review,
         user,
-        isHelpful: voteReviewDto.isHelpful
-      })
-      await manager.save(newNote)
+        isHelpful: voteReviewDto.isHelpful,
+      });
+      await manager.save(newNote);
       return {
         message: 'Vote created successfully',
         reviewId,
         userId,
-        isHelpful: newNote.isHelpful
-      }
-    })
+        isHelpful: newNote.isHelpful,
+      };
+    });
   }
 
   async getReviewSummary(productId: number) {
@@ -288,8 +306,11 @@ export class ReviewsService {
     if (cached) return JSON.parse(cached);
 
     const summary = await this.dataSource.transaction(async (manager) => {
-      const product = await manager.findOne(Product, { where: { id: productId } });
-      if (!product) throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+      const product = await manager.findOne(Product, {
+        where: { id: productId },
+      });
+      if (!product)
+        throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
 
       const results = await manager
         .createQueryBuilder(Review, 'r')
@@ -321,14 +342,19 @@ export class ReviewsService {
         averageRating: +avg.toFixed(1),
         distribution,
       };
-    })
+    });
 
     // cache trong 5 mins
-    await this.redis.set(cachedKey, JSON.stringify(summary), 'EX', 60*5);
+    await this.redis.set(cachedKey, JSON.stringify(summary), 'EX', 60 * 5);
     return summary;
   }
 
-  async updateReview(reviewId: number, userId: number, dto: UpdateReviewDto, images: Array<Express.Multer.File>) {
+  async updateReview(
+    reviewId: number,
+    userId: number,
+    dto: UpdateReviewDto,
+    images: Array<Express.Multer.File>,
+  ) {
     return await this.dataSource.transaction(async (manager) => {
       const review = await manager.findOne(Review, {
         where: {id: reviewId},
@@ -344,28 +370,31 @@ export class ReviewsService {
       await manager.save(review);
 
       // xóa ảnh
-      if (review.images?.length){
+      if (review.images?.length) {
         for (const img of review.images) {
-          if (img.publicId){
+          if (img.publicId) {
             try {
               await this.cloudinaryService.deleteFile(img.publicId);
+            } catch {
+              /* empty */
             }
-            catch { /* empty */ }
           }
         }
-        await manager.delete(ReviewImage, {review: {id: review.id}});
+        await manager.delete(ReviewImage, { review: { id: review.id } });
       }
 
-      if (images?.length > 0){
+      if (images?.length > 0) {
         const uploads = await Promise.all(
           images.map((image) => this.cloudinaryService.uploadFile(image)),
         );
 
-        const newImages = uploads.map((u) => manager.create(ReviewImage, {
-          review,
-          imageUrl: u?.secure_url,
-          publicId: u?.public_id,
-        }))
+        const newImages = uploads.map((u) =>
+          manager.create(ReviewImage, {
+            review,
+            imageUrl: u?.secure_url,
+            publicId: u?.public_id,
+          }),
+        );
 
         await manager.save(newImages);
         review.images = newImages;
@@ -375,9 +404,9 @@ export class ReviewsService {
 
       return {
         ...review,
-        message: "Review updated successfully"
-      }
-    })
+        message: 'Review updated successfully',
+      };
+    });
   }
 
   async deleteReview(reviewId: number, userId: number) {
