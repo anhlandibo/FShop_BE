@@ -238,14 +238,10 @@ export class StockService {
       ]);
 
     // Filter by type
-    if (type) {
-      queryBuilder.andWhere('stock_log.type = :type', { type });
-    }
+    if (type) queryBuilder.andWhere('stock_log.type = :type', { type });
 
     // Filter by variantId
-    if (variantId) {
-      queryBuilder.andWhere('variant.id = :variantId', { variantId });
-    }
+    if (variantId) queryBuilder.andWhere('variant.id = :variantId', { variantId });
 
     // Sorting
     queryBuilder.orderBy(`stock_log.${sortBy}`, sortOrder);
@@ -254,11 +250,11 @@ export class StockService {
     const skip = (page - 1) * limit;
     queryBuilder.skip(skip).take(limit);
 
-    const [logs, total] = await queryBuilder.getManyAndCount();
+    const [data, total] = await queryBuilder.getManyAndCount();
 
     return {
-      data: logs,
-      meta: {
+      data,
+      pagination: {
         total,
         page,
         limit,

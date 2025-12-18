@@ -13,6 +13,7 @@ import { CartItem } from 'src/modules/carts/entities/cart-item.entity';
 import { OrderItem } from 'src/modules/orders/entities';
 import { VariantAttributeValue } from './variant-attribute-value.entity';
 import { Wishlist } from 'src/modules/wishlists/entities/wishlist.entity';
+import { Review } from 'src/modules/reviews/entities/review.entity';
 
 @Entity('product_variants')
 export class ProductVariant {
@@ -52,4 +53,7 @@ export class ProductVariant {
 
   @OneToMany(() => VariantAttributeValue, variantAttributeValue => variantAttributeValue.productVariant)
   variantAttributeValues: VariantAttributeValue[];
+
+  @OneToMany(() => Review, review => review.variant)
+  reviews: Review[];
 }

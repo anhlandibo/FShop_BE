@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { ReviewStatus } from "src/constants";
-import { Product } from "src/modules/products/entities";
+import { ProductVariant } from "src/modules/products/entities";
 import { User } from "src/modules/users/entities/user.entity";
 import { Column, CreateDateColumn, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { ReviewImage } from "./review-image.entity";
@@ -17,8 +18,8 @@ export class Review {
   @ManyToOne(() => Order, (order) => order.reviews)
   order: Order;
 
-  @ManyToOne(() => Product, (product) => product.reviews)
-  product: Product;
+  @ManyToOne(() => ProductVariant, (variant) => variant.reviews)
+  variant: ProductVariant;
 
   @Column({ type: 'decimal', precision: 2, scale: 1, default: 5.0 })
   rating: number;

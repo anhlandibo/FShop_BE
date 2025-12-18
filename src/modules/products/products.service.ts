@@ -20,6 +20,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import * as FormData from 'form-data';
+import { ProductVariantQueryDto } from './dto/variant-query.dto';
 
 @Injectable()
 export class ProductsService {
@@ -590,5 +591,62 @@ export class ProductsService {
       .getMany();
 
     return relatedProducts;
+  }
+
+  async findAllVariants(query: ProductVariantQueryDto) {
+    const { 
+      page = 1, 
+      limit = 10, 
+      search, 
+      sortBy = 'createdAt', 
+      sortOrder = 'DESC', 
+      productId 
+    } = query;
+
+    const skip = (page - 1) * limit;
+
+    const queryBuilder = this.productVariantRepository
+      .createQueryBuilder('variant')
+      .where('variant.isActive = :isActive', { isActive: true })
+      .leftJoinAndSelect('variant.product', 'product')
+      .leftJoinAndSelect('variant.variantAttributeValues', 'vav')
+      .leftJoinAndSelect('vav.attributeCategory', 'ac')
+      .leftJoinAndSelect('ac.attribute', 'attr')
+      .select([
+        'variant.id', 
+        'variant.imageUrl', 
+        'variant.quantity', 
+        'variant.remaining', 
+        'variant.createdAt',
+        'variant.isActive',
+        'product.id', 
+        'product.name', 
+        'product.price',
+        'vav.id', 
+        'ac.value', 
+        'attr.name'
+      ]);
+
+    if (productId) queryBuilder.andWhere('product.id = :productId', { productId });
+    
+    if (search) queryBuilder.andWhere('product.name LIKE :search', { search: `%${search}%` });
+    
+    if (sortBy === 'price' || sortBy === 'name') queryBuilder.orderBy(`product.${sortBy}`, sortOrder);
+    else queryBuilder.orderBy(`variant.${sortBy}`, sortOrder);
+    
+    const [data, total] = await queryBuilder
+      .skip(skip)
+      .take(limit)
+      .getManyAndCount();
+
+    return {
+      pagination: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(total / limit),
+      },
+      data,
+    };
   }
 }
