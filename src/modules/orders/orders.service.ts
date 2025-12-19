@@ -409,11 +409,12 @@ export class OrdersService {
       if (next === OrderStatus.CANCELED || next === OrderStatus.RETURNED) {
         const stockLogItems: { variant: ProductVariant; quantity: number }[] = [];
         for (const it of order.items) {
-          const variant = await manager.findOne(ProductVariant, {
-            where: { id: it.variant.id },
-            relations: ['product'],
-            lock: { mode: 'pessimistic_write' }
-          });
+          const variant = await manager
+            .createQueryBuilder(ProductVariant, 'variant')
+            .innerJoinAndSelect('variant.product', 'product')
+            .where('variant.id = :id', { id: it.variant.id })
+            .setLock('pessimistic_write')
+            .getOne();
           if (variant) {
             variant.remaining = Number(variant.remaining) + Number(it.quantity);
             await manager.save(variant);
