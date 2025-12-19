@@ -60,8 +60,7 @@ export class ReviewsService {
         },
         relations: ['items', 'items.variant'],
       });
-      if (!order)
-        throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
+      if (!order) throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
 
       if (order.status !== OrderStatus.DELIVERED)
         throw new HttpException(
@@ -93,7 +92,7 @@ export class ReviewsService {
         variant,
         rating: createReviewDto.rating,
         comment: createReviewDto.comment,
-        status: ReviewStatus.PENDING,
+        status: ReviewStatus.APPROVED,
       });
       const savedReview = await manager.save(review);
 

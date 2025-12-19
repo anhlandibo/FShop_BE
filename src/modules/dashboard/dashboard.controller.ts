@@ -38,7 +38,7 @@ export class DashboardController {
     return this.dashboardService.getRevenue(range);
   }
 
-  @Get('order-status')
+  @Get('/orders/order-status')
   async getOrderStatus(
     @Query() query: DashboardQueryDto,
   ): Promise<OrderStatusDataDto[]> {
@@ -53,16 +53,10 @@ export class DashboardController {
     const range = query.range || DateRange.THIRTY_DAYS;
     return this.dashboardService.getTopProducts(range);
   }
-}
 
-@Controller('admin/orders')
-@UseGuards(AuthGuard, RolesGuard)
-@Roles(Role.Admin)
-export class AdminOrdersController {
-  constructor(private readonly dashboardService: DashboardService) {}
-
-  @Get('recent')
+  @Get('/orders/recent')
   async getRecentOrders(): Promise<RecentOrderDto[]> {
     return this.dashboardService.getRecentOrders();
   }
 }
+
