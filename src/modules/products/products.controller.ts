@@ -104,5 +104,12 @@ export class ProductsController {
     return this.productsService.getPersonalizedRecommendations(id);
   }
 
-  
+  @Post('search/voice')
+  @ApiOperation({ summary: 'Search products by voice using AI' })
+  @UseInterceptors(FileInterceptor('file')) 
+  searchByVoice(@UploadedFile() file: Express.Multer.File) {
+    if (!file) 
+      throw new BadRequestException('File is required');
+    return this.productsService.searchByVoice(file);
+  }
 }

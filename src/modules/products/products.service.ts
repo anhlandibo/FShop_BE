@@ -652,7 +652,7 @@ export class ProductsService {
     };
   }
 
-  // Nhớ import Order, OrderStatus, In, v.v.
+  
   async getPersonalizedRecommendations(userId: number) {
     // 1. Lấy lịch sử đơn hàng ĐÃ GIAO
     // Quan trọng: Phải join sâu vào tận bảng 'images' của product
@@ -745,6 +745,56 @@ export class ProductsService {
     } catch (error) {
       console.error('AI Recommendation Error:', error.message);
       return [];
+    }
+  }
+
+  async searchByVoice(file: Express.Multer.File) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file.buffer, file.originalname);
+
+      const url = 'http://localhost:8000/search/voice';
+
+      const { data: aiResults } = await firstValueFrom(
+        this.httpService.post(url, formData, {
+          headers: { ...formData.getHeaders() }
+        })
+      )
+
+      if (!aiResults || !aiResults.products || aiResults.products.length === 0)
+        return {
+          text: aiResults?.transcribed_text || '',
+          data: []
+        }
+      
+      const productIds = aiResults.products.map((item: any) => item.product_id);
+
+      const products = await this.productRepository.find({
+        where: { id: In(productIds), isActive: true },
+        relations: ['brand', 'category', 'images'],
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          description: true,
+          brand: { id: true, name: true },
+          category: { id: true, name: true },
+          images: { id: true, imageUrl: true }
+        }
+      });
+
+      const sortedProducts = productIds
+        .map((id) => products.find((p) => p.id === id))
+        .filter((p) => p !== undefined);
+
+      return {
+        text: aiResults.transcribed_text,
+        data: sortedProducts,
+      }
+    }
+    catch (error) {
+      console.error('AI Voice Service Error:', error.message);
+      throw new HttpException('Voice search service unavailable', HttpStatus.SERVICE_UNAVAILABLE);
     }
   }
 }
