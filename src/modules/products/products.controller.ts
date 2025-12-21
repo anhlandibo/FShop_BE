@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, UploadedFile, UploadedFiles, UseInterceptors, UsePipes, ValidationPipe } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UploadedFile, UploadedFiles, UseGuards, UseInterceptors, UsePipes, ValidationPipe } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { FileFieldsInterceptor, FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -10,6 +10,7 @@ import { ProductQueryDto } from 'src/dto/productQuery.dto';
 import { ApiConflictResponse, ApiNotFoundResponse, ApiOperation } from '@nestjs/swagger';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductVariantQueryDto } from './dto/variant-query.dto';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('products')
 export class ProductsController {
@@ -83,9 +84,8 @@ export class ProductsController {
   @ApiOperation({ summary: 'Search products by image using AI' })
   @UseInterceptors(FileInterceptor('image')) 
   searchByImage(@UploadedFile() file: Express.Multer.File) {
-    if (!file) {
+    if (!file) 
       throw new BadRequestException('Image file is required');
-    }
     return this.productsService.searchByImage(file);
   }
 
@@ -94,6 +94,14 @@ export class ProductsController {
   @ApiNotFoundResponse({ description: 'Product not found' })
   getRelatedProducts(@Param('id') id: number) {
     return this.productsService.getRelatedProducts(id);
+  }
+
+  @Get('recommendations/personal')
+  @UseGuards(AuthGuard('jwt')) 
+  @ApiOperation({ summary: 'Get personalized recommendations based on purchase history' })
+  getPersonalizedRecommendations(@Req() req: any) {
+    const {id} = req['user']; 
+    return this.productsService.getPersonalizedRecommendations(id);
   }
 
   
