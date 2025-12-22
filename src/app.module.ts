@@ -41,6 +41,7 @@ import { getMailConfig } from './configs/mail.config';
 import { StockModule } from './modules/stock/stock.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ChatbotModule } from './modules/chatbot/chatbot.module';
+import { PostsModule } from './modules/posts/posts.module';
 
 @Module({
   imports: [
@@ -80,7 +81,8 @@ import { ChatbotModule } from './modules/chatbot/chatbot.module';
     PaymentsModule,
     StockModule,
     DashboardModule,
-    ChatbotModule
+    ChatbotModule,
+    PostsModule,
   ],
   controllers: [AppController],
   providers: [
