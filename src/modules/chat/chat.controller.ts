@@ -28,9 +28,9 @@ export class ChatController {
     return this.service.sendMessage(dto, req.user);
   }
 
-  @Get('messages/:id')
+  @Get('conversations/:id/messages')
   getMessages(@Param('id') id: number) {
-    return this.service.getMessages(id);
+    return this.service.getMessages(Number(id));
   }
 
   @Post('seen/:id')

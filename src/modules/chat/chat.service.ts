@@ -29,8 +29,8 @@ export class ChatService {
   // =========================
   async getOrCreateConversation(user: User) {
     let convo = await this.convoRepo.findOne({
-      where: { customer: { id: user.id }, status: 'OPEN' },
-      relations: ['customer'],
+      where: { customer: { id: user.id } },
+      relations: ['customer', 'assignedAdmin'],
     });
 
     if (!convo) {

@@ -5,29 +5,31 @@ import {
   ManyToOne,
   Column,
   CreateDateColumn,
+  Unique,
+  OneToOne,
+  JoinColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 
-@Entity('conversations')
+@Entity()
+@Unique(['customer'])
 export class Conversation {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => User)
+  @OneToOne(() => User)
+  @JoinColumn()
   customer: User;
 
   @ManyToOne(() => User, { nullable: true })
   assignedAdmin?: User;
 
-  @Column({
-    type: 'enum',
-    enum: ['OPEN', 'HANDLING', 'CLOSED'],
-    default: 'OPEN',
-  })
-  status: 'OPEN' | 'HANDLING' | 'CLOSED';
-
-  @Column({ nullable: true })
-  lastMessageAt: Date;
+  @Column({ default: 'OPEN' })
+  status: 'OPEN' | 'HANDLING';
 
   @CreateDateColumn()
   createdAt: Date;
+
+  @UpdateDateColumn()
+  lastMessageAt: Date;
 }

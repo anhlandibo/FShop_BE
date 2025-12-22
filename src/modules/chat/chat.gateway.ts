@@ -11,6 +11,13 @@ import { Server, Socket } from 'socket.io';
 export class ChatGateway {
   @WebSocketServer()
   server: Server;
+  @SubscribeMessage('leaveConversation')
+  leave(
+    @MessageBody() conversationId: number,
+    @ConnectedSocket() socket: Socket,
+  ) {
+    socket.leave(`conversation-${conversationId}`);
+  }
 
   @SubscribeMessage('joinConversation')
   join(
