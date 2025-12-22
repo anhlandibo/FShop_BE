@@ -12,10 +12,11 @@ import { Brand } from '../brands/entities/brand.entity';
 import { Category } from '../categories/entities/category.entity';
 import { AttributeCategory } from '../attributes/entities/attribute-category.entity';
 import { HttpModule } from '@nestjs/axios';
+import { Order, OrderItem } from '../orders/entities';
 
 @Module({
   controllers: [ProductsController],
   providers: [ProductsService],
-  imports: [TypeOrmModule.forFeature([Product, ProductVariant, ProductImage, Brand, Category, AttributeCategory]), CloudinaryModule, BrandsModule, CategoriesModule, HttpModule]
+  imports: [TypeOrmModule.forFeature([Product, ProductVariant, ProductImage, Brand, Category, AttributeCategory, OrderItem, Order]), CloudinaryModule, BrandsModule, CategoriesModule, HttpModule]
 })
 export class ProductsModule {}

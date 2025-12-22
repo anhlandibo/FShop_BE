@@ -6,6 +6,8 @@ import { Order } from 'src/modules/orders/entities';
 import { ReviewVote } from 'src/modules/reviews/entities/review-vote.entity';
 import { Review } from 'src/modules/reviews/entities/review.entity';
 import { Wishlist } from 'src/modules/wishlists/entities/wishlist.entity';
+import { Post } from 'src/modules/posts/entities/post.entity';
+import { PostLike } from 'src/modules/posts/entities/post-like.entity';
 import {
   Entity,
   Column,
@@ -68,4 +70,10 @@ export class User {
 
   @OneToMany(() => ReviewVote, (vote) => vote.user)
   reviewVotes: ReviewVote[];
+
+  @OneToMany(() => Post, post => post.user)
+  posts: Post[];
+
+  @OneToMany(() => PostLike, (like) => like.user)
+  postLikes: PostLike[];
 }
