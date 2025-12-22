@@ -1,5 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { Body, Controller, Get, Post, Query, Req, UseGuards, Headers } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+  Headers,
+} from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation } from '@nestjs/swagger';
@@ -10,21 +19,19 @@ import { ConfigService } from '@nestjs/config';
 export class PaymentsController {
   constructor(
     private readonly paymentsService: PaymentsService,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
   ) {}
 
   @UseGuards(AuthGuard('jwt'))
   @Post('paypal/create')
   @ApiOperation({ summary: 'Create PayPal payment for an order' })
-  async createPaypal(
-    @Req() req: any,
-    @Body() dto: CreatePaypalPaymentDto,
-  ) {
+  async createPaypal(@Req() req: any, @Body() dto: CreatePaypalPaymentDto) {
     const userId = req.user.id;
 
-    const feUrl = this.configService.get<string>('FE_URL') || 'http://localhost:3000';
-    const returnUrl = `${feUrl}/payment/paypal-success`;
-    const cancelUrl = `${feUrl}/payment/paypal-cancel`;
+    const feUrl =
+      this.configService.get<string>('FE_URL') || 'http://localhost:3000';
+    const returnUrl = `${feUrl}/client/checkout/payment/paypal-success`;
+    const cancelUrl = `${feUrl}/client/checkout/payment/paypal-cancel`;
 
     return this.paymentsService.createPaypalPayment(
       userId,
@@ -47,7 +54,7 @@ export class PaymentsController {
   @ApiOperation({ summary: 'Handle PayPal Webhook' })
   async handlePaypalWebhook(@Body() event: any, @Headers() headers: any) {
     console.log('Received Webhook Event:', event.event_type);
-    await this.paymentsService.handleWebhook(event, headers); 
+    await this.paymentsService.handleWebhook(event, headers);
     return { status: 'received' };
   }
 }
