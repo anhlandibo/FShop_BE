@@ -98,10 +98,7 @@ export class AuthController {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    return {
-      message: 'Login with Google successful',
-      ...tokens,
-    };
+    res.redirect('http://localhost:3000/client/home');
   }
 
   @Post('logout')

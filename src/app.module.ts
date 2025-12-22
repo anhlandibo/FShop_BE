@@ -39,6 +39,9 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { getMailConfig } from './configs/mail.config';
 import { StockModule } from './modules/stock/stock.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { ChatbotModule } from './modules/chatbot/chatbot.module';
+import { PostsModule } from './modules/posts/posts.module';
 
 @Module({
   imports: [
@@ -76,7 +79,10 @@ import { StockModule } from './modules/stock/stock.module';
     NotificationsModule,
     ReviewsModule,
     PaymentsModule,
-    StockModule
+    StockModule,
+    DashboardModule,
+    ChatbotModule,
+    PostsModule,
   ],
   controllers: [AppController],
   providers: [

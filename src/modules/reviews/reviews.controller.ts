@@ -26,8 +26,8 @@ export class ReviewsController {
     @UploadedFiles()
     files: { images?: Express.Multer.File[] },
   ) {
-    const {userId} = request['user']
-    return this.reviewsService.create(dto, userId, files.images ?? []);
+    const {id} = request['user']
+    return this.reviewsService.create(dto, id, files.images ?? []);
   }
 
   @Get()

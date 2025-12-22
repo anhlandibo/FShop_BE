@@ -21,6 +21,8 @@ import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import * as FormData from 'form-data';
 import { ProductVariantQueryDto } from './dto/variant-query.dto';
+import { OrderStatus } from 'src/constants';
+import { Order } from '../orders/entities';
 
 @Injectable()
 export class ProductsService {
@@ -648,5 +650,151 @@ export class ProductsService {
       },
       data,
     };
+  }
+
+  
+  async getPersonalizedRecommendations(userId: number) {
+    // 1. Lấy lịch sử đơn hàng ĐÃ GIAO
+    // Quan trọng: Phải join sâu vào tận bảng 'images' của product
+    const recentOrders = await this.dataSource.getRepository(Order).find({
+      where: { 
+        user: { id: userId }, 
+        status: OrderStatus.DELIVERED 
+      },
+      relations: [
+        'items', 
+        'items.variant', 
+        'items.variant.product', 
+        'items.variant.product.images' // <--- SỬA QUAN TRỌNG: Lấy ảnh product để lấy ID
+      ],
+      order: { createdAt: 'DESC' },
+      take: 20 
+    });
+
+    if (!recentOrders || recentOrders.length === 0) {
+      // Fallback: Nếu user chưa mua gì, trả về sản phẩm mới nhất
+      return this.productRepository.find({
+        where: { isActive: true },
+        order: { createdAt: 'DESC' },
+        take: 10,
+        relations: ['images', 'brand', 'category']
+      });
+    }
+
+    // 2. Trích xuất IMAGE ID (Số nguyên) để khớp với Vector DB
+    const userInteractions: { image_id: number; days_ago: number }[] = [];
+    const now = new Date();
+
+    recentOrders.forEach((order) => {
+      const diffTime = Math.abs(now.getTime() - order.createdAt.getTime());
+      const diffDays = diffTime / (1000 * 60 * 60 * 24);
+
+      order.items.forEach((item) => {
+        // Logic: User mua Variant -> Variant thuộc Product -> Product có nhiều ảnh (ProductImage)
+        // Vector DB đang lưu vector của các ProductImage này.
+        // Ta lấy ảnh đầu tiên (hoặc ảnh active) của Product để làm context.
+        
+        const product = item.variant?.product;
+        if (product && product.images && product.images.length > 0) {
+          // Tìm ảnh active đầu tiên
+          const representativeImage = product.images.find(img => img.isActive) || product.images[0];
+          
+          if (representativeImage) {
+            userInteractions.push({
+              image_id: representativeImage.id, // <--- ĐÚNG: Dùng ID số nguyên từ DB
+              days_ago: diffDays,
+            });
+          }
+        }
+      });
+    });
+
+    if (userInteractions.length === 0) return [];
+
+    // 3. Gọi AI Service (Payload lúc này gửi image_id là số)
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.post('http://localhost:8000/recommend/profile-based', {
+          interactions: userInteractions 
+        })
+      );
+
+      const suggestedProductIds: number[] = data.product_ids || [];
+      if (suggestedProductIds.length === 0) return [];
+
+      // 4. Fetch chi tiết sản phẩm gợi ý
+      const products = await this.productRepository.find({
+        where: { id: In(suggestedProductIds), isActive: true },
+        relations: ['brand', 'category', 'images'],
+        select: {
+            id: true,
+            name: true,
+            price: true,
+            description: true,
+            brand: { id: true, name: true },
+            category: { id: true, name: true },
+            images: { id: true, imageUrl: true },
+        },
+      });
+
+      // Sắp xếp lại theo thứ tự AI trả về
+      return suggestedProductIds
+        .map((id) => products.find((p) => p.id === id))
+        .filter((p) => p !== undefined);
+
+    } catch (error) {
+      console.error('AI Recommendation Error:', error.message);
+      return [];
+    }
+  }
+
+  async searchByVoice(file: Express.Multer.File) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file.buffer, file.originalname);
+
+      const url = 'http://localhost:8000/search/voice';
+
+      const { data: aiResults } = await firstValueFrom(
+        this.httpService.post(url, formData, {
+          headers: { ...formData.getHeaders() }
+        })
+      )
+
+      if (!aiResults || !aiResults.products || aiResults.products.length === 0)
+        return {
+          text: aiResults?.transcribed_text || '',
+          data: []
+        }
+      
+      const productIds = aiResults.products.map((item: any) => item.product_id);
+
+      const products = await this.productRepository.find({
+        where: { id: In(productIds), isActive: true },
+        relations: ['brand', 'category', 'images'],
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          description: true,
+          brand: { id: true, name: true },
+          category: { id: true, name: true },
+          images: { id: true, imageUrl: true }
+        }
+      });
+
+      const sortedProducts = productIds
+        .map((id) => products.find((p) => p.id === id))
+        .filter((p) => p !== undefined);
+
+      return {
+        text: aiResults.transcribed_text,
+        data: sortedProducts,
+      }
+    }
+    catch (error) {
+      console.error('AI Voice Service Error:', error.message);
+      throw new HttpException('Voice search service unavailable', HttpStatus.SERVICE_UNAVAILABLE);
+    }
   }
 }
