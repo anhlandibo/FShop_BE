@@ -40,6 +40,7 @@ import { MailerModule } from '@nestjs-modules/mailer';
 import { getMailConfig } from './configs/mail.config';
 import { StockModule } from './modules/stock/stock.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { ChatbotModule } from './modules/chatbot/chatbot.module';
 
 @Module({
   imports: [
@@ -78,7 +79,8 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     ReviewsModule,
     PaymentsModule,
     StockModule,
-    DashboardModule
+    DashboardModule,
+    ChatbotModule
   ],
   controllers: [AppController],
   providers: [
