@@ -4,6 +4,8 @@ import { PostImage } from './post-image.entity';
 import { PostProduct } from './post-product.entity';
 import { PostLike } from './post-like.entity';
 import { PostComment } from './post-comment.entity';
+import { PostBookmark } from './post-bookmark.entity';
+import { PostShare } from './post-share.entity';
 
 @Entity('posts')
 export class Post {
@@ -22,6 +24,9 @@ export class Post {
   @Column({ type: 'int', default: 0 })
   totalComments: number;
 
+  @Column({ type: 'int', default: 0 })
+  totalShares: number;
+
   @CreateDateColumn()
   createdAt: Date;
 
@@ -39,4 +44,10 @@ export class Post {
 
   @OneToMany(() => PostComment, (comment) => comment.post)
   comments: PostComment[];
+
+  @OneToMany(() => PostBookmark, (bookmark) => bookmark.post)
+  bookmarks: PostBookmark[];
+
+  @OneToMany(() => PostShare, (share) => share.post)
+  shares: PostShare[];
 }

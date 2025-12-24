@@ -1,8 +1,8 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, Like, In } from 'typeorm';
-import { Post, PostImage, PostProduct, PostLike, PostComment } from './entities';
-import { CreatePostDto, UpdatePostDto, CreateCommentDto, QueryPostsDto } from './dto';
+import { Post, PostImage, PostProduct, PostLike, PostComment, PostBookmark, PostShare } from './entities';
+import { CreatePostDto, UpdatePostDto, CreateCommentDto, UpdateCommentDto, QueryPostsDto } from './dto';
 import { User } from '../users/entities/user.entity';
 import { Product } from '../products/entities';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
@@ -17,6 +17,8 @@ export class PostsService {
     @InjectRepository(PostProduct) private postProductsRepository: Repository<PostProduct>,
     @InjectRepository(PostLike) private postLikesRepository: Repository<PostLike>,
     @InjectRepository(PostComment) private postCommentsRepository: Repository<PostComment>,
+    @InjectRepository(PostBookmark) private postBookmarksRepository: Repository<PostBookmark>,
+    @InjectRepository(PostShare) private postSharesRepository: Repository<PostShare>,
     @InjectRepository(Product) private productRepository: Repository<Product>,
     private dataSource: DataSource,
     private readonly cloudinaryService: CloudinaryService,
@@ -337,5 +339,126 @@ export class PostsService {
       },
       data: posts,
     };
+  }
+
+  // UPDATE COMMENT
+  async updateComment(postId: number, commentId: number, userId: number, updateCommentDto: UpdateCommentDto) {
+    return await this.dataSource.transaction(async (manager) => {
+      const comment = await manager.findOne(PostComment, {
+        where: { id: commentId, post: { id: postId } },
+        relations: ['user', 'post'],
+      });
+
+      if (!comment) throw new HttpException('Comment not found', HttpStatus.NOT_FOUND);
+
+      // Check ownership
+      if (comment.user.id !== userId) {
+        throw new HttpException('You can only update your own comments', HttpStatus.FORBIDDEN);
+      }
+
+      comment.content = updateCommentDto.content;
+      await manager.save(comment);
+
+      return { message: 'Comment updated successfully', comment };
+    });
+  }
+
+  // DELETE COMMENT
+  async deleteComment(postId: number, commentId: number, userId: number) {
+    return await this.dataSource.transaction(async (manager) => {
+      const comment = await manager.findOne(PostComment, {
+        where: { id: commentId, post: { id: postId } },
+        relations: ['user', 'post'],
+      });
+
+      if (!comment) throw new HttpException('Comment not found', HttpStatus.NOT_FOUND);
+
+      // Check ownership
+      if (comment.user.id !== userId) {
+        throw new HttpException('You can only delete your own comments', HttpStatus.FORBIDDEN);
+      }
+
+      const post = comment.post;
+      await manager.remove(comment);
+
+      // Decrement totalComments
+      post.totalComments = Math.max(0, post.totalComments - 1);
+      await manager.save(post);
+
+      return { message: 'Comment deleted successfully' };
+    });
+  }
+
+  // TOGGLE BOOKMARK
+  async toggleBookmark(postId: number, userId: number) {
+    return await this.dataSource.transaction(async (manager) => {
+      const post = await manager.findOne(Post, { where: { id: postId } });
+      if (!post) throw new HttpException('Post not found', HttpStatus.NOT_FOUND);
+
+      const existingBookmark = await manager.findOne(PostBookmark, {
+        where: { post: { id: postId }, user: { id: userId } },
+      });
+
+      if (existingBookmark) {
+        // Remove bookmark
+        await manager.remove(existingBookmark);
+        return { message: 'Bookmark removed', action: 'removed' };
+      } else {
+        // Add bookmark
+        const user = await manager.findOne(User, { where: { id: userId } });
+        if (!user) throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+
+        const bookmark = manager.create(PostBookmark, { post, user });
+        await manager.save(bookmark);
+
+        return { message: 'Post bookmarked', action: 'bookmarked' };
+      }
+    });
+  }
+
+  // GET BOOKMARKED POSTS
+  async getBookmarkedPosts(userId: number, page: number = 1, limit: number = 20) {
+    const [bookmarks, total] = await this.postBookmarksRepository.findAndCount({
+      where: { user: { id: userId } },
+      relations: ['post', 'post.user', 'post.images', 'post.postProducts', 'post.postProducts.product'],
+      order: { createdAt: 'DESC' },
+      take: limit,
+      skip: (page - 1) * limit,
+    });
+
+    const posts = bookmarks.map((b) => b.post);
+
+    return {
+      pagination: {
+        total,
+        page,
+        limit,
+      },
+      data: posts,
+    };
+  }
+
+  // SHARE POST
+  async sharePost(postId: number, userId: number) {
+    return await this.dataSource.transaction(async (manager) => {
+      const post = await manager.findOne(Post, { where: { id: postId } });
+      if (!post) throw new HttpException('Post not found', HttpStatus.NOT_FOUND);
+
+      const user = await manager.findOne(User, { where: { id: userId } });
+      if (!user) throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+
+      // Create share record
+      const share = manager.create(PostShare, { post, user });
+      await manager.save(share);
+
+      // Increment totalShares
+      post.totalShares += 1;
+      await manager.save(post);
+
+      return {
+        message: 'Post shared successfully',
+        totalShares: post.totalShares,
+      };
+    });
   }
 }

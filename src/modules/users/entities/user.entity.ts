@@ -8,6 +8,8 @@ import { Review } from 'src/modules/reviews/entities/review.entity';
 import { Wishlist } from 'src/modules/wishlists/entities/wishlist.entity';
 import { Post } from 'src/modules/posts/entities/post.entity';
 import { PostLike } from 'src/modules/posts/entities/post-like.entity';
+import { PostBookmark } from 'src/modules/posts/entities/post-bookmark.entity';
+import { PostShare } from 'src/modules/posts/entities/post-share.entity';
 import {
   Entity,
   Column,
@@ -76,4 +78,10 @@ export class User {
 
   @OneToMany(() => PostLike, (like) => like.user)
   postLikes: PostLike[];
+
+  @OneToMany(() => PostBookmark, (bookmark) => bookmark.user)
+  postBookmarks: PostBookmark[];
+
+  @OneToMany(() => PostShare, (share) => share.user)
+  postShares: PostShare[];
 }
