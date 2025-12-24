@@ -40,6 +40,7 @@ import { MailerModule } from '@nestjs-modules/mailer';
 import { getMailConfig } from './configs/mail.config';
 import { StockModule } from './modules/stock/stock.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { ChatModule } from 'src/modules/chat/chat.module';
 import { ChatbotModule } from './modules/chatbot/chatbot.module';
 import { PostsModule } from './modules/posts/posts.module';
 
@@ -60,7 +61,7 @@ import { PostsModule } from './modules/posts/posts.module';
     }),
     MailerModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: getMailConfig
+      useFactory: getMailConfig,
     }),
     //config postgres
     AuthModule,
@@ -83,6 +84,7 @@ import { PostsModule } from './modules/posts/posts.module';
     DashboardModule,
     ChatbotModule,
     PostsModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [
