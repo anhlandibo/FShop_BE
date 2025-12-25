@@ -26,7 +26,7 @@ export class CouponsController {
 
   @Get('all')
   @ApiOperation({ summary: 'Get all coupons' })
-  getAll(@Query() query: QueryDto) {
+  getAll(@Query() query: MyCouponsQueryDto) {
     return this.couponsService.getAll(query);
   }
 
