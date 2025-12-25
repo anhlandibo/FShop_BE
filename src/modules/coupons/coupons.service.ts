@@ -91,15 +91,34 @@ export class CouponsService {
     });
   }
 
-  async getAll(query: QueryDto) {
-    const { page, limit, search, sortBy = 'id', sortOrder = 'DESC' } = query;
-    const [data, total] = await this.couponRepository.findAndCount({
-      where: search
-        ? [{ name: Like(`%${search}%`) }, { description: Like(`%${search}%`) }]
-        : {},
-      ...(page && limit && { take: limit, skip: (page - 1) * limit }),
-      order: { [sortBy]: sortOrder },
-    });
+  async getAll(query: MyCouponsQueryDto) {
+        const { page, limit, search, sortBy = 'id', sortOrder = 'DESC', discountType } = query;
+
+    const queryBuilder = this.couponRepository.createQueryBuilder('coupon');
+
+    // Filter by discount type
+    if (discountType) {
+      queryBuilder.andWhere('coupon.discountType = :discountType', { discountType });
+    }
+
+    // Search by coupon name or description
+    if (search) {
+      queryBuilder.andWhere(
+        '(coupon.name LIKE :search OR coupon.description LIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
+    // Sorting
+    queryBuilder.orderBy(`coupon.${sortBy}`, sortOrder);
+
+    // Pagination
+    if (page && limit) {
+      queryBuilder.skip((page - 1) * limit).take(limit);
+    }
+
+    const [data, total] = await queryBuilder.getManyAndCount();
+
     const response = {
       pagination: {
         total,
