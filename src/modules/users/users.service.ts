@@ -152,7 +152,7 @@ export class UsersService {
   }
 
   async remove(id: number) {
-    const user = await this.usersRepository.findOne({ where: { id } });
+    const user = await this.usersRepository.findOne({ where: { id, isActive: true } });
     if (!user) throw new HttpException('User not found', HttpStatus.NOT_FOUND);
     user.isActive = false;
     user.email = `${user.email}_deleted_${Date.now()}`;
