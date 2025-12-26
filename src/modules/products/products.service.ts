@@ -867,21 +867,41 @@ export class ProductsService {
   }
 
   async remove(id: number) {
-    const product = await this.productRepository.findOne({ 
+    return await this.dataSource.transaction(async (manager) => {
+      const product = await manager.findOne(Product, {
         where: { id, isActive: true },
-        relations: ['images'] 
+        relations: ['images'],
+      });
+
+      if (!product) {
+        throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+      }
+
+      product.isActive = false;
+      await manager.save(product);
+
+      await manager.update(
+        ProductVariant,
+        { product: { id: id } },
+        { isActive: false },
+      );
+
+      await manager.update(
+        ProductImage,
+        { product: { id: id } },
+        { isActive: false },
+      );
+
+      if (product.images && product.images.length > 0) {
+        const imageIds = product.images.map((i) => i.id);
+        this.removeImagesFromVectorDB(imageIds);
+      }
+      
+      this.removeProductFromRAG(id);
+
+      return {
+        message: 'Product and related variants/images soft deleted successfully',
+      };
     });
-    
-    if (!product) throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
-
-    product.isActive = false;
-    await this.productRepository.save(product);
-
-    const imageIds = product.images.map(i => i.id);
-    this.removeImagesFromVectorDB(imageIds);
-
-    this.removeProductFromRAG(id);
-
-    return { message: 'Product deleted successfully' };
   }
 }
