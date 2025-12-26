@@ -41,12 +41,74 @@ export class ProductsService {
     private readonly httpService: HttpService,
   ) {}
 
+  async syncProductToRAG(productId: number) {
+    try {
+      // a. Lấy thông tin chi tiết
+      const product = await this.productRepository.findOne({
+        where: { id: productId },
+        relations: [
+          'brand', 
+          'category', 
+          'images', 
+          'variants', 
+          'variants.variantAttributeValues',
+          'variants.variantAttributeValues.attributeCategory',
+          'variants.variantAttributeValues.attributeCategory.attribute'
+        ]
+      });
+      if (!product) return;
+      const attrSet = new Set<string>();
+      product.variants?.forEach(v => {
+        if(v.isActive && v.variantAttributeValues) {
+          v.variantAttributeValues.forEach(vav => {
+            const attrName = vav.attributeCategory?.attribute?.name;
+            const value = vav.attributeCategory?.value;
+            if (attrName && value) {
+              attrSet.add(`${attrName}: ${value}`);
+            }
+          });
+        }
+      });
+      const attributesStr = Array.from(attrSet).join(', ');
+
+      const payload = {
+        id: product.id,
+        name: product.name,
+        description: product.description || "",
+        price: Number(product.price), 
+        image_url: product.images?.find(img => img.isActive)?.imageUrl || "",
+        category: product.category?.name || "General",
+        brand: product.brand?.name || "Generic",
+        attributes: attributesStr 
+      };
+
+      await firstValueFrom(
+        this.httpService.post('http://localhost:8000/products/sync', payload)
+      );
+      console.log(`Synced Product ${productId} to RAG AI.`);
+
+    } catch (error) {
+      console.error(`Failed to sync product ${productId} to RAG:`, error.message);
+    }
+  }
+
+  async removeProductFromRAG(productId: number) {
+    try {
+      await firstValueFrom(
+        this.httpService.post('http://localhost:8000/products/remove', { product_id: productId })
+      );
+      console.log(`Removed Product ${productId} from RAG AI.`);
+    } catch (error) {
+      console.error(`Failed to remove product ${productId} from RAG:`, error.message);
+    }
+  }
+
   async create(
     createProductDto: CreateProductDto,
     images: Array<Express.Multer.File>,
     variantImages: Array<Express.Multer.File>,
   ) {
-    return await this.dataSource.transaction(async (manager) => {
+    const result =  await this.dataSource.transaction(async (manager) => {
       // Check trùng tên
       if (
         await manager.findOne(Product, {
@@ -168,6 +230,9 @@ export class ProductsService {
         images: savedImages,
       });
     });
+    if (result && result.id) 
+      this.syncProductToRAG(result.id);
+    return result;
   }
 
   async findAll(query: ProductQueryDto) {
@@ -305,7 +370,7 @@ export class ProductsService {
     variantImages: Express.Multer.File[],
     newProductImages: Express.Multer.File[],
   ) {
-    return await this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       const product = await manager.findOne(Product, {
         where: { id },
         relations: ['variants', 'brand', 'category', 'images'],
@@ -477,6 +542,8 @@ export class ProductsService {
 
       return this.getProductById(product.id);
     });
+    this.syncProductToRAG(id);
+    return result;
   }
 
   async searchByImage(file: Express.Multer.File) {
@@ -796,5 +863,24 @@ export class ProductsService {
       console.error('AI Voice Service Error:', error.message);
       throw new HttpException('Voice search service unavailable', HttpStatus.SERVICE_UNAVAILABLE);
     }
+  }
+
+  async remove(id: number) {
+    const product = await this.productRepository.findOne({ 
+        where: { id },
+        relations: ['images'] 
+    });
+    
+    if (!product) throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+
+    product.isActive = false;
+    await this.productRepository.save(product);
+
+    const imageIds = product.images.map(i => i.id);
+    this.removeImagesFromVectorDB(imageIds);
+
+    this.removeProductFromRAG(id);
+
+    return { message: 'Product deleted successfully' };
   }
 }
