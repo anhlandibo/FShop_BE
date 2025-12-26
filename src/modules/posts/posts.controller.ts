@@ -157,4 +157,18 @@ export class PostsController {
   getPostsByProduct(@Param('productId') productId: number, @Query('page') page?: number, @Query('limit') limit?: number) {
     return this.postsService.getPostsByProduct(productId, page, limit);
   }
+
+  @Get('author/:userId')
+  @ApiOperation({ summary: 'Get author profile with statistics (total posts, total likes)' })
+  @ApiNotFoundResponse({ description: 'Author not found' })
+  getAuthorProfile(@Param('userId') userId: number) {
+    return this.postsService.getAuthorProfile(userId);
+  }
+
+  @Get('author/:userId/posts')
+  @ApiOperation({ summary: 'Get all posts from a specific author with pagination' })
+  @ApiNotFoundResponse({ description: 'Author not found' })
+  getAuthorPosts(@Param('userId') userId: number, @Query('page') page?: number, @Query('limit') limit?: number) {
+    return this.postsService.getAuthorPosts(userId, page, limit);
+  }
 }

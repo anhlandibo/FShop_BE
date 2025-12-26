@@ -461,4 +461,59 @@ export class PostsService {
       };
     });
   }
+
+  // GET AUTHOR PROFILE WITH STATISTICS
+  async getAuthorProfile(authorId: number) {
+    const author = await this.dataSource
+      .createQueryBuilder(User, 'user')
+      .leftJoinAndSelect('user.posts', 'posts')
+      .leftJoinAndSelect('posts.likes', 'likes')
+      .where('user.id = :authorId', { authorId })
+      .getOne();
+
+    if (!author) throw new HttpException('Author not found', HttpStatus.NOT_FOUND);
+
+    // Calculate total likes across all posts
+    let totalLikes = 0;
+    if (author.posts && author.posts.length > 0) {
+      totalLikes = author.posts.reduce((sum, post) => sum + post.totalLikes, 0);
+    }
+
+    return {
+      id: author.id,
+      fullName: author.fullName,
+      avatar: author.avatar,
+      bio: author.bio,
+      email: author.email,
+      createdAt: author.createdAt,
+      stats: {
+        totalPosts: author.posts?.length || 0,
+        totalLikes,
+      },
+    };
+  }
+
+  // GET AUTHOR'S POSTS WITH PAGINATION
+  async getAuthorPosts(authorId: number, page: number = 1, limit: number = 20) {
+    // Check if author exists
+    const author = await this.dataSource.getRepository(User).findOne({ where: { id: authorId } });
+    if (!author) throw new HttpException('Author not found', HttpStatus.NOT_FOUND);
+
+    const [posts, total] = await this.postsRepository.findAndCount({
+      where: { user: { id: authorId } },
+      relations: ['user', 'images', 'postProducts', 'postProducts.product'],
+      order: { createdAt: 'DESC' },
+      take: limit,
+      skip: (page - 1) * limit,
+    });
+
+    return {
+      pagination: {
+        total,
+        page,
+        limit,
+      },
+      data: posts,
+    };
+  }
 }
