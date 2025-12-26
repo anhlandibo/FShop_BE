@@ -4,7 +4,7 @@ import { InjectRedis } from '@nestjs-modules/ioredis';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import Redis from 'ioredis';
-import { Repository, DataSource, Like, In } from 'typeorm';
+import { Repository, DataSource, Like, In, Brackets } from 'typeorm';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { Product } from './entities/product.entity';
@@ -122,14 +122,14 @@ export class ProductsService {
 
       // Check brand
       const existingBrand = await manager.findOne(Brand, {
-        where: { id: createProductDto.brandId },
+        where: { id: createProductDto.brandId, isActive: true },
       });
       if (!existingBrand)
         throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
 
       // Check category
       const existingCategory = await manager.findOne(Category, {
-        where: { id: createProductDto.categoryId },
+        where: { id: createProductDto.categoryId, isActive: true },
       });
       if (!existingCategory)
         throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
@@ -248,12 +248,11 @@ export class ProductsService {
       minPrice,
       maxPrice,
     } = query;
-
     const queryBuilder = this.productRepository
       .createQueryBuilder('product')
 
       // product
-      .leftJoinAndSelect('product.images', 'image')
+      .leftJoinAndSelect('product.images', 'image', 'image.isActive = :isActive', { isActive: true })
       .leftJoinAndSelect('product.brand', 'brand')
       .leftJoinAndSelect('product.category', 'category')
 
@@ -261,8 +260,8 @@ export class ProductsService {
       .leftJoinAndSelect(
         'product.variants',
         'variant',
-        'variant.isActive = :isActive',
-        { isActive: true },
+        'variant.isActive = :isVariantActive',
+        { isVariantActive: true },
       )
 
       // 🔥 JOIN SÂU CHO VARIANT
@@ -274,14 +273,17 @@ export class ProductsService {
         'variantAttributeValue.attributeCategory',
         'attributeCategory',
       )
-      .leftJoinAndSelect('attributeCategory.attribute', 'attribute');
+      .leftJoinAndSelect('attributeCategory.attribute', 'attribute')
+      .where('product.isActive = :isProductActive', { isProductActive: true });
 
     // ================= FILTER =================
 
     if (search) {
       queryBuilder.andWhere(
-        '(product.name LIKE :search OR product.description LIKE :search)',
-        { search: `%${search}%` },
+        new Brackets((qb) => {
+          qb.where('product.name ILIKE :search', { search: `%${search}%` })
+            .orWhere('product.description ILIKE :search', { search: `%${search}%` });
+        }),
       );
     }
 
@@ -325,13 +327,13 @@ export class ProductsService {
   async getProductById(id: number) {
     const product = await this.productRepository
       .createQueryBuilder('product')
-      .where('product.id = :id', { id })
+      .where('product.id = :id', { id }).andWhere('product.isActive = :isActive', { isActive: true })
 
       .leftJoinAndSelect(
         'product.variants',
         'variant',
-        'variant.isActive = :isActive',
-        { isActive: true },
+        'variant.isActive = :isVariantActive',
+        { isVariantActive: true },
       )
 
       // 2. Join các bảng con của Variant
@@ -345,7 +347,6 @@ export class ProductsService {
       )
       .leftJoinAndSelect('attributeCategory.attribute', 'attribute')
 
-      // 3. Join Images: Cũng nên filter isActive = true (nếu bạn có logic soft delete ảnh)
       .leftJoinAndSelect(
         'product.images',
         'image',
@@ -372,7 +373,7 @@ export class ProductsService {
   ) {
     const result = await this.dataSource.transaction(async (manager) => {
       const product = await manager.findOne(Product, {
-        where: { id },
+        where: { id, isActive: true },
         relations: ['variants', 'brand', 'category', 'images'],
       });
 
@@ -386,7 +387,7 @@ export class ProductsService {
 
       if (dto.brandId !== undefined) {
         const brand = await manager.findOne(Brand, {
-          where: { id: dto.brandId },
+          where: { id: dto.brandId, isActive: true },
         });
         if (!brand)
           throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
@@ -395,7 +396,7 @@ export class ProductsService {
 
       if (dto.categoryId !== undefined) {
         const category = await manager.findOne(Category, {
-          where: { id: dto.categoryId },
+          where: { id: dto.categoryId, isActive: true },
         });
         if (!category)
           throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
@@ -867,7 +868,7 @@ export class ProductsService {
 
   async remove(id: number) {
     const product = await this.productRepository.findOne({ 
-        where: { id },
+        where: { id, isActive: true },
         relations: ['images'] 
     });
     

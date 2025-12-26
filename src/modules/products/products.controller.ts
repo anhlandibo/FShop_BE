@@ -40,6 +40,7 @@ export class ProductsController {
     );
   }
 
+ 
   @Get()
   @ApiOperation({ summary: 'Get all products' })
   findAll(@Query() query: ProductQueryDto) {
