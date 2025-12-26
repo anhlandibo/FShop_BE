@@ -9,6 +9,7 @@ import { request } from 'http';
 import { QueryDto } from 'src/dto/query.dto';
 import { VoteReviewDto } from './dto/vote-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
+import { TopReviewsDto } from './dto/top-reviews.dto';
 
 @Controller('reviews')
 export class ReviewsController {
@@ -34,6 +35,12 @@ export class ReviewsController {
   @ApiOperation({ summary: 'Get all reviews' })
   findAll(@Query() query: QueryDto) {
     return this.reviewsService.findAll(query);
+  }
+
+  @Get('top-rated')
+  @ApiOperation({ summary: 'Get top-k reviews with highest ratings' })
+  getTopReviews(@Query() query: TopReviewsDto) {
+    return this.reviewsService.getTopReviewsByRating(query);
   }
 
   @Get('product/:productId')

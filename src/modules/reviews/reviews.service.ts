@@ -20,6 +20,7 @@ import { VoteReviewDto } from './dto/vote-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { Order } from '../orders/entities';
+import { TopReviewsDto } from './dto/top-reviews.dto';
 
 @Injectable()
 export class ReviewsService {
@@ -454,5 +455,67 @@ export class ReviewsService {
       await this.redis.del(`review:summary:${review.variant.product.id}`);
       return { message: 'Review deleted successfully' };
     });
+  }
+
+  async getTopReviewsByRating(dto: TopReviewsDto) {
+    const { top = 10, productId } = dto;
+
+    // Create cache key based on params
+    const cacheKey = productId
+      ? `reviews:top:${top}:product:${productId}`
+      : `reviews:top:${top}:all`;
+
+    // Check Redis cache
+    const cached = await this.redis.get(cacheKey);
+    if (cached) return JSON.parse(cached);
+
+    // Build query
+    const queryBuilder = this.reviewsRepository
+      .createQueryBuilder('r')
+      .innerJoinAndSelect('r.variant', 'v')
+      .innerJoinAndSelect('v.product', 'p')
+      .innerJoinAndSelect('r.user', 'u')
+      .leftJoinAndSelect('r.images', 'img')
+      .leftJoinAndSelect('r.votes', 'vote')
+      .where('r.status = :status', { status: ReviewStatus.APPROVED });
+
+    // Filter by product if provided
+    if (productId) {
+      queryBuilder.andWhere('p.id = :productId', { productId });
+    }
+
+    // Order by rating DESC (highest first), then by createdAt DESC (newest first)
+    const reviews = await queryBuilder
+      .orderBy('r.rating', 'DESC')
+      .addOrderBy('r.createdAt', 'DESC')
+      .take(top)
+      .getMany();
+
+    // Format response
+    const result = reviews.map((r) => ({
+      id: r.id,
+      rating: r.rating,
+      comment: r.comment,
+      user: {
+        id: r.user.id,
+        name: r.user.fullName,
+      },
+      product: {
+        id: r.variant.product.id,
+        name: r.variant.product.name,
+      },
+      variant: {
+        id: r.variant.id,
+        name: r.variant.product.name,
+      },
+      images: r.images.map((img) => img.imageUrl),
+      helpfulCount: r.votes.filter((v) => v.isHelpful).length,
+      createdAt: r.createdAt,
+    }));
+
+    // Cache result for 5 minutes
+    await this.redis.set(cacheKey, JSON.stringify(result), 'EX', 60 * 5);
+
+    return result;
   }
 }
