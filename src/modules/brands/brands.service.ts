@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brand } from './entities/brand.entity';
-import { DataSource, In, Like, Repository } from 'typeorm';
+import { DataSource, ILike, In, Like, Repository } from 'typeorm';
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import Redis from 'ioredis';
 import { QueryDto } from 'src/dto/query.dto';
@@ -46,8 +46,10 @@ export class BrandsService {
     const { page, limit, search, sortBy = 'id', sortOrder = 'DESC' } = query;
     const [data, total] = await this.brandRepository.findAndCount({
       where: search
-        ? [{ name: Like(`%${search}%`) }, { description: Like(`%${search}%`) }]
-        : {},
+        ? [
+            { isActive: true, name: ILike(`%${search}%`) },
+          ]
+        : { isActive: true },
       ...(page && limit && { take: limit, skip: (page - 1) * limit }),
       order: { [sortBy]: sortOrder },
     });
@@ -65,7 +67,7 @@ export class BrandsService {
 
   async update(id: number, updateBrandDto: UpdateBrandDto, file: Express.Multer.File) {
     return await this.dataSource.transaction(async (manager) => {
-      const brand = await manager.findOne(Brand, { where: { id } });
+      const brand = await manager.findOne(Brand, { where: { id, isActive: true } });
       if (!brand) throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
       Object.assign(brand, updateBrandDto); // merge 
       if (file) {
@@ -80,7 +82,7 @@ export class BrandsService {
 
   async delete(id: number) {
     return await this.dataSource.transaction(async (manager) => {
-      const brand = await manager.findOne(Brand, { where: { id } });
+      const brand = await manager.findOne(Brand, { where: { id, isActive: true } });
       if (!brand) throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
   
       if (brand.publicId) await this.cloudinaryService.deleteFile(brand.publicId).catch(() => null);
@@ -105,20 +107,20 @@ export class BrandsService {
       for (const brand of brands) 
         if (brand.publicId) await this.cloudinaryService.deleteFile(brand.publicId).catch(() => null);
 
-      await manager.remove(brands);
+      await manager.update(Brand, { id: In(ids) }, { isActive: false });
 
       return { deletedIds: ids };
     })
   }
 
   async getById(id: number) {
-    const brand = await this.brandRepository.findOne({ where: { id } });
+    const brand = await this.brandRepository.findOne({ where: { id, isActive: true } });
     if (!brand) throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
     return brand;
   }
 
   async getBySlug(slug: string) {
-    const brand = await this.brandRepository.findOne({ where: { slug } });
+    const brand = await this.brandRepository.findOne({ where: { slug, isActive: true } });
     if (!brand) throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
     return brand;
   }

@@ -73,6 +73,8 @@ export class AuthService {
     const user = await this.usersService.findByEmail(email);
     if (!user)
       throw new HttpException('User not found', HttpStatus.UNAUTHORIZED);
+    if (!user.isVerified)
+      throw new HttpException('Email not verified', HttpStatus.UNAUTHORIZED);
     const isMatch = await comparePassword(password, user.password);
     if (!isMatch)
       throw new HttpException('Bad credential', HttpStatus.UNAUTHORIZED);

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/restrict-template-expressions */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { DataSource, In, Like, Repository } from 'typeorm';
+import { DataSource, ILike, In, Like, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { hashKey, hashPassword } from 'src/utils/hash';
 import { User } from 'src/modules/users/entities/user.entity';
@@ -15,6 +15,7 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { MailerService } from '@nestjs-modules/mailer';
 import { Role } from 'src/constants';
 import { v4 as uuidv4 } from 'uuid';
+import { tr } from '@faker-js/faker/.';
 @Injectable()
 export class UsersService {
   constructor(
@@ -47,6 +48,8 @@ export class UsersService {
       avatar: imageUrl,
       publicId,
       password,
+      isVerified: true,
+      isActive: true,
     });
     await this.usersRepository.save(user);
     await this.cartService.create({ userId: user.id });
@@ -105,30 +108,33 @@ export class UsersService {
   }
 
   async findById(id: number) {
-    const user = await this.usersRepository.findOne({ where: { id } });
+    const user = await this.usersRepository.findOne({ where: { id, isActive: true } });
     if (!user) throw new HttpException('Not found user', HttpStatus.NOT_FOUND);
     return user;
   }
 
   async findAll(query: QueryDto) {
     const { page, limit, search, sortBy = 'id', sortOrder = 'DESC' } = query;
-    const redisKey = hashKey('users', query);
-    const cachedData: string | null = await this.redis.get(redisKey);
-    if (cachedData) {
-      console.log('data lay tu redis');
-      return JSON.parse(cachedData) as {
-        pagination: {
-          total: number;
-          page: number | undefined;
-          limit: number | undefined;
-        };
-        data: User[];
-      };
-    }
+    // const redisKey = hashKey('users', query);
+    // const cachedData: string | null = await this.redis.get(redisKey);
+    // if (cachedData) {
+    //   console.log('data lay tu redis');
+    //   return JSON.parse(cachedData) as {
+    //     pagination: {
+    //       total: number;
+    //       page: number | undefined;
+    //       limit: number | undefined;
+    //     };
+    //     data: User[];
+    //   };
+    // }
     const [data, total] = await this.usersRepository.findAndCount({
       where: search
-        ? [{ fullName: Like(`%${search}%`) }, { email: Like(`%${search}%`) }]
-        : {},
+        ? [
+            { isActive: true, fullName: ILike(`%${search}%`) },
+            { isActive: true, email: ILike(`%${search}%`) },
+          ]
+        : { isActive: true },
       ...(page && limit && { take: limit, skip: (page - 1) * limit }),
       order: { [sortBy]: sortOrder },
     });
@@ -141,14 +147,16 @@ export class UsersService {
       data,
     };
     console.log('data lay tu DB');
-    await this.redis.set(redisKey, JSON.stringify(response), 'EX', 60);
+    // await this.redis.set(redisKey, JSON.stringify(response), 'EX', 60);
     return response;
   }
 
   async remove(id: number) {
-    const user = await this.usersRepository.findOne({ where: { id } });
+    const user = await this.usersRepository.findOne({ where: { id, isActive: true } });
     if (!user) throw new HttpException('User not found', HttpStatus.NOT_FOUND);
-    await this.usersRepository.remove(user);
+    user.isActive = false;
+    user.email = `${user.email}_deleted_${Date.now()}`;
+    await this.usersRepository.save(user);
     return {
       message: 'User soft deleted successfully',
       deletedId: id,
@@ -164,9 +172,15 @@ export class UsersService {
       if (!users || users.length === 0)
         throw new HttpException('Not found any users', HttpStatus.NOT_FOUND);
 
-      await manager.remove(users);
+      await this.usersRepository.update({id: In(ids)}, {
+        isActive: false,
+        email: () => `CONCAT(email, '_deleted_', ${Date.now()})`,
+      });
 
-      return { deletedIds: ids };
+      return { 
+        deletedIds: ids,
+        message: 'Users soft deleted successfully',
+      };
     });
   }
 
@@ -225,6 +239,7 @@ export class UsersService {
       fullName,
       isVerified: false, 
       role: Role.User, 
+      isActive: true,
     });
 
     const savedUser = await this.usersRepository.save(newUser);
