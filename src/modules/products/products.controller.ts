@@ -112,4 +112,12 @@ export class ProductsController {
       throw new BadRequestException('File is required');
     return this.productsService.searchByVoice(file);
   }
+
+  @Delete(':id')
+  @UseGuards(AuthGuard('jwt')) 
+  @ApiOperation({ summary: 'Delete product (Soft delete & Remove from AI)' })
+  @ApiNotFoundResponse({ description: 'Product not found' })
+  remove(@Param('id') id: number) {
+    return this.productsService.remove(id);
+  }
 }
