@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import Redis from 'ioredis';
-import { Repository, DataSource, Like, In } from 'typeorm';
+import { Repository, DataSource, Like, In, ILike } from 'typeorm';
 import { Category } from './entities/category.entity';
 import { QueryDto } from 'src/dto/query.dto';
 import { hashKey } from 'src/utils/hash';
@@ -47,7 +47,7 @@ export class CategoriesService {
         throw new HttpException('Category already exist', HttpStatus.CONFLICT);
       // check department
       const department = await manager.findOne(Department, {
-        where: { id: createCategoryDto.departmentId },
+        where: { id: createCategoryDto.departmentId, isActive: true },
       });
       if (!department)
         throw new HttpException('Department not found', HttpStatus.NOT_FOUND);
@@ -109,7 +109,7 @@ export class CategoriesService {
     return await this.dataSource.transaction(async (manager) => {
       console.log(updateCategoryDto.attributes);
       const category = await manager.findOne(Category, {
-        where: { id },
+        where: { id, isActive: true },
         relations: [
           'attributeCategories',
           'attributeCategories.variantAttributeValues',
@@ -121,7 +121,7 @@ export class CategoriesService {
       // Update department
       if (updateCategoryDto.departmentId) {
         const department = await manager.findOne(Department, {
-          where: { id: updateCategoryDto.departmentId },
+          where: { id: updateCategoryDto.departmentId, isActive: true },
         });
         if (!department)
           throw new HttpException('Department not found', HttpStatus.NOT_FOUND);
@@ -157,7 +157,7 @@ export class CategoriesService {
       if (updateCategoryDto.attributes?.length) {
         for (const attr of updateCategoryDto.attributes) {
           const attribute = await manager.findOne(Attribute, {
-            where: { id: attr.attributeId },
+            where: { id: attr.attributeId, isActive: true },
           });
           if (!attribute)
             throw new HttpException(
@@ -193,7 +193,7 @@ export class CategoriesService {
 
   async delete(id: number) {
     return await this.dataSource.transaction(async (manager) => {
-      const category = await manager.findOne(Category, { where: { id } });
+      const category = await manager.findOne(Category, { where: { id, isActive: true } });
       if (!category)
         throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
 
@@ -230,14 +230,16 @@ export class CategoriesService {
     */
     const [data, total] = await this.categoryRepository.findAndCount({
       where: search
-        ? [{ name: Like(`%${search}%`) }, { description: Like(`%${search}%`) }]
-        : {},
+        ? [
+            { isActive: true, name: ILike(`%${search}%`) },
+          ]
+        : { isActive: true },
       ...(page && limit && { take: limit, skip: (page - 1) * limit }),
       order: { [sortBy]: sortOrder },
       relations: {
         attributeCategories: {
-          attribute: true, // 👈 load Attribute
-          category: true, // 👈 load Category (nếu cần, nhưng Category chính là bảng này)
+          attribute: true, 
+          category: true, 
         },
       },
     });
@@ -257,7 +259,7 @@ export class CategoriesService {
 
   async getById(id: number) {
     const category = await this.categoryRepository.findOne({
-      where: { id },
+      where: { id, isActive: true },
       relations: [
         'attributeCategories',
         'department',
@@ -271,7 +273,7 @@ export class CategoriesService {
 
   async getBySlug(slug: string) {
     const category = await this.categoryRepository.findOne({
-      where: { slug },
+      where: { slug, isActive: true },
       relations: [
         'attributeCategories',
         'department',
@@ -287,7 +289,7 @@ export class CategoriesService {
     const { ids } = deleteCategoriesDto;
     return await this.dataSource.transaction(async (manager) => {
       const categories = await manager.find(Category, {
-        where: { id: In(ids) },
+        where: { id: In(ids), isActive: true },
       });
 
       if (!categories || categories.length === 0) {
