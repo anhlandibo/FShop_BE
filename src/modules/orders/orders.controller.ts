@@ -1,5 +1,16 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { QueryDto } from 'src/dto/query.dto';
@@ -8,7 +19,12 @@ import { CancelOrderDto } from './dto/cancel-order.dto';
 import { ActorRole } from 'src/utils/order-status.rules';
 import { RolesGuard } from 'src/guards/roles.guard';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiBadRequestResponse, ApiBearerAuth, ApiNotFoundResponse, ApiOperation } from '@nestjs/swagger';
+import {
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiNotFoundResponse,
+  ApiOperation,
+} from '@nestjs/swagger';
 import { OrderQueryDto } from 'src/dto/orderQuery.dto';
 import { OrderStatus } from 'src/constants';
 
@@ -21,8 +37,10 @@ export class OrdersController {
   @UseGuards(AuthGuard('jwt'))
   @Post()
   @ApiOperation({ summary: 'Create a new order for the authenticated user' })
-  @ApiNotFoundResponse({ description: 'User or address or cart item not found' })
-  @ApiBadRequestResponse({ description: 'Not enough quantity'})
+  @ApiNotFoundResponse({
+    description: 'User or address or cart item not found',
+  })
+  @ApiBadRequestResponse({ description: 'Not enough quantity' })
   create(@Req() req: Request, @Body() createOrderDto: CreateOrderDto) {
     const { id } = req['user'];
     return this.ordersService.create(id, createOrderDto);
@@ -66,10 +84,14 @@ export class OrdersController {
   // CANCEL ORDER
   @UseGuards(AuthGuard('jwt'))
   @Post(':id/cancel')
-  @ApiOperation({ summary: 'Cancel an order (only PENDING or CONFIRMED orders)' })
+  @ApiOperation({
+    summary: 'Cancel an order (only PENDING or CONFIRMED orders)',
+  })
   @ApiBearerAuth()
   @ApiNotFoundResponse({ description: 'Order not found' })
-  @ApiBadRequestResponse({ description: 'Order cannot be canceled in current status' })
+  @ApiBadRequestResponse({
+    description: 'Order cannot be canceled in current status',
+  })
   async cancelOrder(
     @Req() req: Request,
     @Param('id', ParseIntPipe) id: number,
@@ -83,7 +105,7 @@ export class OrdersController {
 
     const actor = {
       id: userId,
-      role: userRole === 'admin' ? 'admin' : 'user' as ActorRole,
+      role: userRole === 'admin' ? 'admin' : ('user' as ActorRole),
       reason: dto.reason,
     };
 
@@ -95,7 +117,11 @@ export class OrdersController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @ApiOperation({ summary: 'Update order status' })
   @ApiNotFoundResponse({ description: 'Order not found' })
-  updateOrderStatus(@Req() req: any, @Param('id') id: number, @Body() dto: UpdateOrderStatusDto) {
+  updateOrderStatus(
+    @Req() req: any,
+    @Param('id') id: number,
+    @Body() dto: UpdateOrderStatusDto,
+  ) {
     const actor = {
       id: req.user.id,
       role: req.user.role as ActorRole,
@@ -109,8 +135,11 @@ export class OrdersController {
   @Post(':orderId/confirm-delivery')
   @ApiOperation({ summary: 'User confirms receipt of goods' })
   @ApiBearerAuth()
-  confirmDelivery(@Req() req: Request, @Param('orderId', ParseIntPipe) orderId: number) {
-    const {id} = req['user'];
+  confirmDelivery(
+    @Req() req: Request,
+    @Param('orderId', ParseIntPipe) orderId: number,
+  ) {
+    const { id } = req['user'];
     return this.ordersService.userConfirmDelivery(orderId, id);
   }
 }
