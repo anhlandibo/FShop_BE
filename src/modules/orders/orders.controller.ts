@@ -15,6 +15,13 @@ import { OrderStatus } from 'src/constants';
 @Controller('orders')
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
+  @UseGuards(AuthGuard('jwt'))
+  @Get(':orderId')
+  @ApiOperation({ summary: 'Get order by ID for the authenticated user' })
+  @ApiNotFoundResponse({ description: 'Order not found' })
+  getOrderById(@Param('orderId') orderId: number) {
+    return this.ordersService.getOrderById(orderId);
+  }
 
   // CREATE ORDER
   @UseGuards(AuthGuard('jwt'))
@@ -49,9 +56,9 @@ export class OrdersController {
   @Get('me/:orderId')
   @ApiOperation({ summary: 'Get order by ID for the authenticated user' })
   @ApiNotFoundResponse({ description: 'Order not found' })
-  getOrderById(@Req() req: Request, @Param('orderId') orderId: number) {
+  getOrderByIdForUser(@Req() req: Request, @Param('orderId') orderId: number) {
     const { id } = req['user'];
-    return this.ordersService.getOrderById(id, orderId);
+    return this.ordersService.getOrderByIdForUser(id, orderId);
   }
 
   // CANCEL ORDER

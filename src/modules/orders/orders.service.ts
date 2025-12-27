@@ -310,9 +310,26 @@ export class OrdersService {
     return response;
   }
 
-  async getOrderById(userId: number, id: number) {
+  async getOrderByIdForUser(userId: number, id: number) {
     const order = await this.orderRepository.findOne({
       where: { user: { id: userId }, id },
+      relations: [
+        'items',
+        'items.variant',
+        'items.variant.product',
+        'items.variant.variantAttributeValues',
+        'items.variant.variantAttributeValues.attributeCategory',
+        'items.variant.variantAttributeValues.attributeCategory.attribute',
+      ],
+    });
+    if (!order)
+      throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
+    return order;
+  }
+
+  async getOrderById(id: number) {
+    const order = await this.orderRepository.findOne({
+      where: { id },
       relations: [
         'items',
         'items.variant',
