@@ -229,16 +229,16 @@ export class CategoriesService {
     }
     */
     const [data, total] = await this.categoryRepository.findAndCount({
-      where: search
-        ? [{ name: Like(`%${search}%`) }, { description: Like(`%${search}%`) }]
-        : {},
+      where: search ? [{ name: Like(`%${search}%`) }] : {},
       ...(page && limit && { take: limit, skip: (page - 1) * limit }),
       order: { [sortBy]: sortOrder },
       relations: {
         attributeCategories: {
           attribute: true, // 👈 load Attribute
-          category: true, // 👈 load Category (nếu cần, nhưng Category chính là bảng này)
+          category: true,
+          // 👈 load Category (nếu cần, nhưng Category chính là bảng này)
         },
+        department: true,
       },
     });
 

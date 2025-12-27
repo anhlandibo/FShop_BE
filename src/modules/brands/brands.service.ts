@@ -20,18 +20,21 @@ export class BrandsService {
 
   async create(createBrandDto: CreateBrandDto, file: Express.Multer.File) {
     return await this.dataSource.transaction(async (manager) => {
-      const alreadyExist = await manager.findOne(Brand, { where: { name: createBrandDto.name } });
-      if (alreadyExist) throw new HttpException('Brand already exist', HttpStatus.CONFLICT);
-  
+      const alreadyExist = await manager.findOne(Brand, {
+        where: { name: createBrandDto.name },
+      });
+      if (alreadyExist)
+        throw new HttpException('Brand already exist', HttpStatus.CONFLICT);
+
       let imageUrl: string | undefined;
       let publicId: string | undefined;
-  
+
       if (file) {
         const uploaded = await this.cloudinaryService.uploadFile(file);
         imageUrl = uploaded?.secure_url;
         publicId = uploaded?.public_id;
       }
-  
+
       const brand = this.brandRepository.create({
         ...createBrandDto,
         imageUrl,
@@ -39,15 +42,13 @@ export class BrandsService {
       });
       await manager.save(brand);
       return brand;
-    })
+    });
   }
 
   async findAll(query: QueryDto) {
     const { page, limit, search, sortBy = 'id', sortOrder = 'DESC' } = query;
     const [data, total] = await this.brandRepository.findAndCount({
-      where: search
-        ? [{ name: Like(`%${search}%`) }, { description: Like(`%${search}%`) }]
-        : {},
+      where: search ? [{ name: Like(`%${search}%`) }] : {},
       ...(page && limit && { take: limit, skip: (page - 1) * limit }),
       order: { [sortBy]: sortOrder },
     });
@@ -63,63 +64,80 @@ export class BrandsService {
     return response;
   }
 
-  async update(id: number, updateBrandDto: UpdateBrandDto, file: Express.Multer.File) {
+  async update(
+    id: number,
+    updateBrandDto: UpdateBrandDto,
+    file: Express.Multer.File,
+  ) {
     return await this.dataSource.transaction(async (manager) => {
       const brand = await manager.findOne(Brand, { where: { id } });
-      if (!brand) throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
-      Object.assign(brand, updateBrandDto); // merge 
+      if (!brand)
+        throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
+      Object.assign(brand, updateBrandDto); // merge
       if (file) {
-        if (brand.publicId) await this.cloudinaryService.deleteFile(brand.publicId).catch(() => null)
+        if (brand.publicId)
+          await this.cloudinaryService
+            .deleteFile(brand.publicId)
+            .catch(() => null);
         const uploaded = await this.cloudinaryService.uploadFile(file);
         brand.imageUrl = uploaded?.secure_url;
         brand.publicId = uploaded?.public_id;
       }
       return await manager.save(brand);
-    })
+    });
   }
 
   async delete(id: number) {
     return await this.dataSource.transaction(async (manager) => {
       const brand = await manager.findOne(Brand, { where: { id } });
-      if (!brand) throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
-  
-      if (brand.publicId) await this.cloudinaryService.deleteFile(brand.publicId).catch(() => null);
-      
+      if (!brand)
+        throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
+
+      if (brand.publicId)
+        await this.cloudinaryService
+          .deleteFile(brand.publicId)
+          .catch(() => null);
+
       await manager.update(Brand, { id }, { isActive: false });
       return {
         message: 'Brand disabled successfully',
         deletedId: id,
       };
-    })
+    });
   }
 
   async deleteMany(deleteBrandsDto: DeleteBrandsDto) {
     const { ids } = deleteBrandsDto;
 
     return await this.dataSource.transaction(async (manager) => {
-      const brands = await manager.find(Brand, {where: { id: In(ids) }});
+      const brands = await manager.find(Brand, { where: { id: In(ids) } });
 
-      if (!brands || brands.length === 0) 
+      if (!brands || brands.length === 0)
         throw new HttpException('Not found any brands', HttpStatus.NOT_FOUND);
-      
-      for (const brand of brands) 
-        if (brand.publicId) await this.cloudinaryService.deleteFile(brand.publicId).catch(() => null);
+
+      for (const brand of brands)
+        if (brand.publicId)
+          await this.cloudinaryService
+            .deleteFile(brand.publicId)
+            .catch(() => null);
 
       await manager.remove(brands);
 
       return { deletedIds: ids };
-    })
+    });
   }
 
   async getById(id: number) {
     const brand = await this.brandRepository.findOne({ where: { id } });
-    if (!brand) throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
+    if (!brand)
+      throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
     return brand;
   }
 
   async getBySlug(slug: string) {
     const brand = await this.brandRepository.findOne({ where: { slug } });
-    if (!brand) throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
+    if (!brand)
+      throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
     return brand;
   }
 }
