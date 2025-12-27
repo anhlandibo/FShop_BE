@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brand } from './entities/brand.entity';
-import { DataSource, In, Like, Repository } from 'typeorm';
+import { DataSource, ILike, In, Like, Repository } from 'typeorm';
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import Redis from 'ioredis';
 import { QueryDto } from 'src/dto/query.dto';
@@ -48,7 +48,9 @@ export class BrandsService {
   async findAll(query: QueryDto) {
     const { page, limit, search, sortBy = 'id', sortOrder = 'DESC' } = query;
     const [data, total] = await this.brandRepository.findAndCount({
-      where: search ? [{ name: Like(`%${search}%`) }] : {},
+      where: search
+        ? [{ isActive: true, name: ILike(`%${search}%`) }]
+        : { isActive: true },
       ...(page && limit && { take: limit, skip: (page - 1) * limit }),
       order: { [sortBy]: sortOrder },
     });
@@ -70,7 +72,9 @@ export class BrandsService {
     file: Express.Multer.File,
   ) {
     return await this.dataSource.transaction(async (manager) => {
-      const brand = await manager.findOne(Brand, { where: { id } });
+      const brand = await manager.findOne(Brand, {
+        where: { id, isActive: true },
+      });
       if (!brand)
         throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
       Object.assign(brand, updateBrandDto); // merge
@@ -89,7 +93,9 @@ export class BrandsService {
 
   async delete(id: number) {
     return await this.dataSource.transaction(async (manager) => {
-      const brand = await manager.findOne(Brand, { where: { id } });
+      const brand = await manager.findOne(Brand, {
+        where: { id, isActive: true },
+      });
       if (!brand)
         throw new HttpException('Brand not found', HttpStatus.NOT_FOUND);
 
@@ -121,7 +127,7 @@ export class BrandsService {
             .deleteFile(brand.publicId)
             .catch(() => null);
 
-      await manager.remove(brands);
+      await manager.update(Brand, { id: In(ids) }, { isActive: false });
 
       return { deletedIds: ids };
     });

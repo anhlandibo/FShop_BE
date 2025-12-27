@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Department } from './entities/department.entity';
-import { DataSource, Like, Repository } from 'typeorm';
+import { DataSource, ILike, Like, Repository } from 'typeorm';
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import Redis from 'ioredis';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
@@ -63,11 +63,13 @@ export class DepartmentsService {
     */
     const [data, total] = await this.departmentRepository.findAndCount({
       where: search
-        ? [{ name: Like(`%${search}%`) }, { description: Like(`%${search}%`) }]
-        : {},
+        ? [
+            { isActive: true, name: ILike(`%${search}%`) },
+          ]
+        : { isActive: true },
       ...(page && limit && { take: limit, skip: (page - 1) * limit }),
       order: { [sortBy]: sortOrder },
-      relations: ['categories']
+      relations: ['categories'],
     });
     const response = {
       pagination: {
@@ -104,7 +106,7 @@ export class DepartmentsService {
 
   async delete(id: number) {
     return await this.dataSource.transaction(async (manager) => {
-      const department = await manager.findOne(Department, { where: { id } });
+      const department = await manager.findOne(Department, { where: { id, isActive: true } });
       if (!department) throw new HttpException('Department not found', HttpStatus.NOT_FOUND);
 
       if (department.publicId) await this.cloudinaryService.deleteFile(department.publicId).catch(() => null);
@@ -118,13 +120,13 @@ export class DepartmentsService {
   }
 
   async getById(id: number) {
-    const department = await this.departmentRepository.findOne({ where: { id } });
+    const department = await this.departmentRepository.findOne({ where: { id, isActive: true } });
     if (!department) throw new HttpException('Department not found', HttpStatus.NOT_FOUND);
     return department;
   }
 
   async getBySlug(slug: string) {
-    const department = await this.departmentRepository.findOne({ where: { slug } });
+    const department = await this.departmentRepository.findOne({ where: { slug, isActive: true } });
     if (!department) throw new HttpException('Department not found', HttpStatus.NOT_FOUND);
     return department;
   }

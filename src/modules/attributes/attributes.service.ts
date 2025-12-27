@@ -1,5 +1,5 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { DataSource, Like, Repository } from 'typeorm';
+import { DataSource, ILike, Like, Repository } from 'typeorm';
 import { Attribute } from './entities/attribute.entity';
 import { CreateAttributeDto } from './dto/create-attribute.dto';
 import { QueryDto } from 'src/dto/query.dto';
@@ -31,8 +31,10 @@ export class AttributesService {
     const { page, limit, search, sortBy = 'id', sortOrder = 'DESC' } = query;
     const [data, total] = await this.attributeRepository.findAndCount({
       where: search
-        ? [{ name: Like(`%${search}%`) }]
-        : {},
+        ? [
+            { isActive: true, name: ILike(`%${search}%`) },
+          ]
+        : { isActive: true },
       ...(page && limit && { take: limit, skip: (page - 1) * limit }),
       order: { [sortBy]: sortOrder },
       relations: ['attributeCategories'],
@@ -51,7 +53,7 @@ export class AttributesService {
 
   async getAttributeById(id: number) {
     return await this.dataSource.transaction(async (manager) => {
-      const attribute = await manager.findOne(Attribute, { where: { id } });
+      const attribute = await manager.findOne(Attribute, { where: { id, isActive: true } });
       if (!attribute) throw new HttpException('Attribute not found', HttpStatus.NOT_FOUND);
       return attribute;
     })
@@ -59,7 +61,7 @@ export class AttributesService {
 
   async update(id: number, updateAttributeDto: UpdateAttributeDto) {
     return await this.dataSource.transaction(async (manager) => {
-      const attribute = await manager.findOne(Attribute, { where: { id } });
+      const attribute = await manager.findOne(Attribute, { where: { id, isActive: true } });
       if (!attribute) throw new HttpException('Attribute not found', HttpStatus.NOT_FOUND);
       Object.assign(attribute, updateAttributeDto); // merge 
       return await manager.save(attribute);
@@ -68,7 +70,7 @@ export class AttributesService {
 
   async delete(id: number) {
     return await this.dataSource.transaction(async (manager) => {
-      const attribute = await manager.findOne(Attribute, { where: { id } });
+      const attribute = await manager.findOne(Attribute, { where: { id, isActive: true } });
       if (!attribute) throw new HttpException('Attribute not found', HttpStatus.NOT_FOUND);
 
       await manager.update(Attribute, { id }, { isActive: false });
@@ -81,16 +83,17 @@ export class AttributesService {
 
   async getAttributeCategory(categoryId: number, attributeId: number) {
     return await this.dataSource.transaction(async (manager) => {
-      const attribute = await manager.findOne(Attribute, { where: { id: attributeId } });
+      const attribute = await manager.findOne(Attribute, { where: { id: attributeId, isActive: true } });
       if (!attribute) throw new HttpException('Attribute not found', HttpStatus.NOT_FOUND);
 
-      const category = await manager.findOne(Category, { where: { id: categoryId } });
+      const category = await manager.findOne(Category, { where: { id: categoryId, isActive: true } });
       if (!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
 
       const attributeCategory = await manager.findOne(AttributeCategory, {
         where: {
           category: { id: categoryId },
           attribute: { id: attributeId },
+          isActive: true,
         }
       });
       if (!attributeCategory) throw new HttpException('Attribute category not found', HttpStatus.NOT_FOUND);
@@ -100,12 +103,13 @@ export class AttributesService {
 
   async getAttributeCategories(categoryId: number) {
     return await this.dataSource.transaction(async (manager) => {
-      const category = await manager.findOne(Category, { where: { id: categoryId } });
+      const category = await manager.findOne(Category, { where: { id: categoryId, isActive: true } });
       if (!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
 
       const attributeCategories = await manager.find(AttributeCategory, {
         where: {
           category: { id: categoryId },
+          isActive: true,
         },
         relations: [
           'attribute',
@@ -118,10 +122,10 @@ export class AttributesService {
 
   async getAttributeCategoriesBySlug(slug: string) {
     return await this.dataSource.transaction(async (manager) => {
-      const category = await manager.findOne(Category, { where: { slug } });
+      const category = await manager.findOne(Category, { where: { slug, isActive: true } });
       if (!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
 
-      const attributeCategories = await manager.find(AttributeCategory, {where: {category: { slug }}});
+      const attributeCategories = await manager.find(AttributeCategory, {where: {category: { slug }, isActive: true},});
       return attributeCategories;
     })
   }
