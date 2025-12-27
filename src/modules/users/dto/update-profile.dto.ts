@@ -5,7 +5,4 @@ import { StringOptional } from 'src/decorators/dto.decorator';
 export class UpdateProfileDto {
   @StringOptional()
   fullName?: string;
-
-  @StringOptional()
-  bio?: string;
 }

@@ -483,7 +483,6 @@ export class PostsService {
       id: author.id,
       fullName: author.fullName,
       avatar: author.avatar,
-      bio: author.bio,
       email: author.email,
       createdAt: author.createdAt,
       stats: {
