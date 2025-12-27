@@ -1,14 +1,15 @@
 import { CouponStatus, DiscountType } from "src/constants";
-import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, Index, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { CouponTarget } from "./coupon-target.entity";
 import { CouponRedemption } from "./coupon-redemption.entity";
 
 @Entity('coupons')
+@Index('IDX_COUPON_CODE_ACTIVE', ['code'], { unique: true, where: '"isActive" = true' })
 export class Coupon {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ unique: true })
+  @Column()
   code: string;
 
   @Column({ nullable: true })
@@ -49,6 +50,9 @@ export class Coupon {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @Column({ type: 'boolean', default: true })
+  isActive: boolean;
 
   // Relations
   @OneToMany(() => CouponTarget, (target) => target.coupon)

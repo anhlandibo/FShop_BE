@@ -133,6 +133,7 @@ export class ReviewsService {
       .addSelect('COUNT(r.id)', 'count')
       .where('v.product = :productId', { productId })
       .andWhere('r.status = :status', { status: ReviewStatus.APPROVED })
+      .andWhere('r.isActive = :isActive', { isActive: true })
       .getRawOne();
 
     await manager.update(Product, productId, {
@@ -144,7 +145,7 @@ export class ReviewsService {
   async findAll(query: QueryDto) {
     const { page, limit, search, sortBy = 'id', sortOrder = 'DESC' } = query;
     const [data, total] = await this.reviewsRepository.findAndCount({
-      where: search ? [{ comment: Like(`%${search}%`) }] : {},
+      where: search ? [{ comment: Like(`%${search}%`), isActive: true }] : { isActive: true },
       ...(page && limit && { take: limit, skip: (page - 1) * limit }),
       order: { [sortBy]: sortOrder },
       relations: ['variant', 'variant.product', 'votes']
@@ -170,6 +171,7 @@ export class ReviewsService {
       .leftJoinAndSelect('r.votes', 'vote')
       .where('v.product = :productId', { productId })
       .andWhere('r.status = :status', { status: ReviewStatus.APPROVED })
+      .andWhere('r.isActive = :isActive', { isActive: true })
       .orderBy('r.createdAt', 'DESC')
       .getMany();
 
@@ -190,7 +192,7 @@ export class ReviewsService {
   async approve(id: number) {
     return await this.dataSource.transaction(async (manager) => {
       const review = await manager.findOne(Review, {
-        where: { id },
+        where: { id, isActive: true },
         relations: ['variant', 'variant.product', 'user'],
       });
       if (!review)
@@ -221,7 +223,7 @@ export class ReviewsService {
   async reject(id: number) {
     return await this.dataSource.transaction(async (manager) => {
       const review = await manager.findOne(Review, {
-        where: { id },
+        where: { id, isActive: true },
         relations: ['variant', 'variant.product', 'user'],
       });
       if (!review)
@@ -252,7 +254,7 @@ export class ReviewsService {
   async vote(reviewId: number, userId: number, voteReviewDto: VoteReviewDto) {
     return await this.dataSource.transaction(async (manager) => {
       const review = await manager.findOne(Review, {
-        where: { id: reviewId },
+        where: { id: reviewId, isActive: true },
         relations: ['user'],
       });
       if (!review)
@@ -319,6 +321,7 @@ export class ReviewsService {
         .addSelect('COUNT(r.id)', 'count')
         .where('v.product = :productId', { productId })
         .andWhere('r.status = :status', { status: ReviewStatus.APPROVED })
+        .andWhere('r.isActive = :isActive', { isActive: true })
         .groupBy('ROUND(r.rating)')
         .getRawMany();
 
@@ -357,7 +360,7 @@ export class ReviewsService {
   ) {
     return await this.dataSource.transaction(async (manager) => {
       const review = await manager.findOne(Review, {
-        where: {id: reviewId},
+        where: { id: reviewId, isActive: true },
         relations: ['variant', 'variant.product', 'images']
       })
       if (!review) throw new HttpException('Review not found', HttpStatus.NOT_FOUND)
@@ -412,8 +415,8 @@ export class ReviewsService {
   async deleteReview(reviewId: number, userId: number) {
     return await this.dataSource.transaction(async (manager) => {
       const review = await manager.findOne(Review, {
-        where: { id: reviewId, user: { id: userId } },
-        relations: ['images', 'variant', 'variant.product'],
+        where: { id: reviewId, user: { id: userId }, isActive: true },
+        relations: ['variant', 'variant.product'],
       });
 
       if (!review)
@@ -422,38 +425,40 @@ export class ReviewsService {
           HttpStatus.NOT_FOUND,
         );
 
-      // Không cho xoá nếu review đã được admin duyệt
-      if (review.status === ReviewStatus.APPROVED) {
-        throw new HttpException(
-          'Approved reviews cannot be deleted',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
+      // Soft delete: set isActive to false
+      review.isActive = false;
+      await manager.save(review);
 
-      // Xoá ảnh Cloudinary
-      if (review.images?.length) {
-        for (const img of review.images) {
-          if (img.publicId) {
-            try {
-              await this.cloudinaryService.deleteFile(img.publicId);
-            } catch {
-              /*  */
-            }
-          }
-        }
-        await manager.delete(ReviewImage, { review: { id: review.id } });
-      }
-
-      // Xoá vote liên quan (nếu có)
-      await manager.delete(ReviewVote, { review: { id: review.id } });
-
-      // Xoá review chính
-      await manager.delete(Review, { id: review.id });
-
-      // cập nhật lại average rating của product
+      // Cập nhật lại average rating của product (chỉ tính reviews active)
       await this.updateProductRating(manager, review.variant.product.id);
       await this.redis.del(`review:summary:${review.variant.product.id}`);
+
       return { message: 'Review deleted successfully' };
+    });
+  }
+
+  async restoreReview(reviewId: number, userId: number) {
+    return await this.dataSource.transaction(async (manager) => {
+      const review = await manager.findOne(Review, {
+        where: { id: reviewId, user: { id: userId }, isActive: false },
+        relations: ['variant', 'variant.product'],
+      });
+
+      if (!review)
+        throw new HttpException(
+          'Deleted review not found or unauthorized',
+          HttpStatus.NOT_FOUND,
+        );
+
+      // Restore: set isActive to true
+      review.isActive = true;
+      await manager.save(review);
+
+      // Cập nhật lại average rating của product
+      await this.updateProductRating(manager, review.variant.product.id);
+      await this.redis.del(`review:summary:${review.variant.product.id}`);
+
+      return { message: 'Review restored successfully', review };
     });
   }
 
@@ -477,7 +482,8 @@ export class ReviewsService {
       .innerJoinAndSelect('r.user', 'u')
       .leftJoinAndSelect('r.images', 'img')
       .leftJoinAndSelect('r.votes', 'vote')
-      .where('r.status = :status', { status: ReviewStatus.APPROVED });
+      .where('r.status = :status', { status: ReviewStatus.APPROVED })
+      .andWhere('r.isActive = :isActive', { isActive: true });
 
     // Filter by product if provided
     if (productId) {

@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository, Like, In } from 'typeorm';
+import { DataSource, Repository, Like, In, ILike } from 'typeorm';
 import { Post, PostImage, PostProduct, PostLike, PostComment, PostBookmark, PostShare } from './entities';
 import { CreatePostDto, UpdatePostDto, CreateCommentDto, UpdateCommentDto, QueryPostsDto } from './dto';
 import { User } from '../users/entities/user.entity';
@@ -88,12 +88,12 @@ export class PostsService {
     let orderBy: any = {};
     if (sortType === 'popular') orderBy = { totalLikes: 'DESC', createdAt: 'DESC' };
     else orderBy = { createdAt: 'DESC' };
-      
+
     // If custom sortBy provided, override
     if (sortBy && sortOrder) orderBy = { [sortBy]: sortOrder };
-      
+
     const [data, total] = await this.postsRepository.findAndCount({
-      where: search ? { content: Like(`%${search}%`) } : {},
+      where: search ? { content: ILike(`%${search}%`), isActive: true } : { isActive: true },
       ...(page && limit && { take: limit, skip: (page - 1) * limit }),
       order: orderBy,
       relations: ['user', 'images', 'postProducts', 'postProducts.product'],
@@ -112,7 +112,7 @@ export class PostsService {
   // GET POST DETAIL
   async findOne(id: number) {
     const post = await this.postsRepository.findOne({
-      where: { id },
+      where: { id, isActive: true },
       relations: ['user', 'images', 'postProducts', 'postProducts.product', 'comments', 'comments.user'],
     });
     if (!post) throw new HttpException('Post not found', HttpStatus.NOT_FOUND);
@@ -123,7 +123,7 @@ export class PostsService {
   async update(postId: number, userId: number, updatePostDto: UpdatePostDto) {
     return await this.dataSource.transaction(async (manager) => {
       const post = await manager.findOne(Post, {
-        where: { id: postId },
+        where: { id: postId, isActive: true },
         relations: ['user'],
       });
 
@@ -168,36 +168,45 @@ export class PostsService {
     });
   }
 
-  // DELETE POST
+  // DELETE POST (SOFT DELETE)
   async delete(postId: number, userId: number) {
     return await this.dataSource.transaction(async (manager) => {
       const post = await manager.findOne(Post, {
-        where: { id: postId },
-        relations: ['user', 'images'],
+        where: { id: postId, isActive: true },
+        relations: ['user'],
       });
       if (!post) throw new HttpException('Post not found', HttpStatus.NOT_FOUND);
 
       // Check ownership
-      if (post.user.id !== userId) 
+      if (post.user.id !== userId)
         throw new HttpException('You can only delete your own posts', HttpStatus.FORBIDDEN);
-      
-      // Delete images from Cloudinary
-      if (post.images && post.images.length > 0) {
-        for (const img of post.images) {
-          if (img.publicId) {
-            try {
-              await this.cloudinaryService.deleteFile(img.publicId);
-            } catch {
-              /* Ignore errors */
-            }
-          }
-        }
-      }
 
-      // Delete post (cascade will handle related entities)
-      await manager.delete(Post, { id: postId });
+      // Soft delete: set isActive to false
+      post.isActive = false;
+      await manager.save(post);
 
       return { message: 'Post deleted successfully' };
+    });
+  }
+
+  // RESTORE POST
+  async restore(postId: number, userId: number) {
+    return await this.dataSource.transaction(async (manager) => {
+      const post = await manager.findOne(Post, {
+        where: { id: postId, isActive: false },
+        relations: ['user'],
+      });
+      if (!post) throw new HttpException('Deleted post not found', HttpStatus.NOT_FOUND);
+
+      // Check ownership
+      if (post.user.id !== userId)
+        throw new HttpException('You can only restore your own posts', HttpStatus.FORBIDDEN);
+
+      // Restore: set isActive to true
+      post.isActive = true;
+      await manager.save(post);
+
+      return { message: 'Post restored successfully', post };
     });
   }
 
@@ -205,7 +214,7 @@ export class PostsService {
   async toggleLike(postId: number, userId: number) {
     return await this.dataSource.transaction(async (manager) => {
       const post = await manager.findOne(Post, {
-        where: { id: postId },
+        where: { id: postId, isActive: true },
         relations: ['user'],
       });
 
@@ -258,7 +267,7 @@ export class PostsService {
   async addComment(postId: number, userId: number, createCommentDto: CreateCommentDto) {
     return await this.dataSource.transaction(async (manager) => {
       const post = await manager.findOne(Post, {
-        where: { id: postId },
+        where: { id: postId, isActive: true },
         relations: ['user'],
       });
 
@@ -295,7 +304,7 @@ export class PostsService {
 
   // GET COMMENTS
   async getComments(postId: number, page: number = 1, limit: number = 20) {
-    const post = await this.postsRepository.findOne({ where: { id: postId } });
+    const post = await this.postsRepository.findOne({ where: { id: postId, isActive: true } });
     if (!post) throw new HttpException('Post not found', HttpStatus.NOT_FOUND);
 
     const [data, total] = await this.postCommentsRepository.findAndCount({
@@ -322,7 +331,7 @@ export class PostsService {
     if (!product) throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
 
     const [postProducts, total] = await this.postProductsRepository.findAndCount({
-      where: { product: { id: productId } },
+      where: { product: { id: productId }, post: { isActive: true } },
       relations: ['post', 'post.user', 'post.images', 'post.postProducts', 'post.postProducts.product'],
       order: { createdAt: 'DESC' },
       take: limit,
@@ -392,7 +401,7 @@ export class PostsService {
   // TOGGLE BOOKMARK
   async toggleBookmark(postId: number, userId: number) {
     return await this.dataSource.transaction(async (manager) => {
-      const post = await manager.findOne(Post, { where: { id: postId } });
+      const post = await manager.findOne(Post, { where: { id: postId, isActive: true } });
       if (!post) throw new HttpException('Post not found', HttpStatus.NOT_FOUND);
 
       const existingBookmark = await manager.findOne(PostBookmark, {
@@ -419,7 +428,7 @@ export class PostsService {
   // GET BOOKMARKED POSTS
   async getBookmarkedPosts(userId: number, page: number = 1, limit: number = 20) {
     const [bookmarks, total] = await this.postBookmarksRepository.findAndCount({
-      where: { user: { id: userId } },
+      where: { user: { id: userId }, post: { isActive: true } },
       relations: ['post', 'post.user', 'post.images', 'post.postProducts', 'post.postProducts.product'],
       order: { createdAt: 'DESC' },
       take: limit,
@@ -441,7 +450,7 @@ export class PostsService {
   // SHARE POST
   async sharePost(postId: number, userId: number) {
     return await this.dataSource.transaction(async (manager) => {
-      const post = await manager.findOne(Post, { where: { id: postId } });
+      const post = await manager.findOne(Post, { where: { id: postId, isActive: true } });
       if (!post) throw new HttpException('Post not found', HttpStatus.NOT_FOUND);
 
       const user = await manager.findOne(User, { where: { id: userId } });
@@ -466,7 +475,7 @@ export class PostsService {
   async getAuthorProfile(authorId: number) {
     const author = await this.dataSource
       .createQueryBuilder(User, 'user')
-      .leftJoinAndSelect('user.posts', 'posts')
+      .leftJoinAndSelect('user.posts', 'posts', 'posts.isActive = :isActive', { isActive: true })
       .leftJoinAndSelect('posts.likes', 'likes')
       .where('user.id = :authorId', { authorId })
       .getOne();
@@ -499,7 +508,7 @@ export class PostsService {
     if (!author) throw new HttpException('Author not found', HttpStatus.NOT_FOUND);
 
     const [posts, total] = await this.postsRepository.findAndCount({
-      where: { user: { id: authorId } },
+      where: { user: { id: authorId }, isActive: true },
       relations: ['user', 'images', 'postProducts', 'postProducts.product'],
       order: { createdAt: 'DESC' },
       take: limit,

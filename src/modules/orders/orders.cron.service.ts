@@ -58,7 +58,6 @@ export class OrdersCronService {
         if (item.variant) {
           const variant = await queryRunner.manager.findOne(ProductVariant, {
             where: { id: item.variant.id },
-            relations: ['product'],
             lock: { mode: 'pessimistic_write' }
           });
 

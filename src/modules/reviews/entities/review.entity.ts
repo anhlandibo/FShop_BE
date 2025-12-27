@@ -36,6 +36,9 @@ export class Review {
   @UpdateDateColumn()
   updatedAt: Date;
 
+  @Column({ type: 'boolean', default: true })
+  isActive: boolean;
+
   @OneToMany(() => ReviewImage, (image) => image.review, { cascade: true })
   images: ReviewImage[];
 
