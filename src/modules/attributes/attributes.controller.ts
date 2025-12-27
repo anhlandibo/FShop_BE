@@ -4,6 +4,7 @@ import { CreateAttributeDto } from './dto/create-attribute.dto';
 import { QueryDto } from 'src/dto/query.dto';
 import { UpdateAttributeDto } from './dto/update-attribute.dto';
 import { ApiConflictResponse, ApiCreatedResponse, ApiNotFoundResponse, ApiOperation } from '@nestjs/swagger';
+import { DeleteAttributesDto } from './dto/delete-attributes.dto';
 
 @Controller('attributes')
 export class AttributesController {
@@ -42,6 +43,13 @@ export class AttributesController {
   @ApiNotFoundResponse({description: 'Attribute not found'})
   getAttributeById(@Param('id') id: number) {
     return this.attributesService.getAttributeById(id);
+  }
+
+  @Post('remove-multiple')
+  @ApiOperation({ summary: 'Delete many attributes' })
+  @ApiNotFoundResponse({ description: 'Attribute not found' })
+  deleteMany(@Body() deleteAttributesDto: DeleteAttributesDto) {
+    return this.attributesService.deleteMany(deleteAttributesDto);
   }
 
   

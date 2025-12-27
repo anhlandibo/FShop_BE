@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Department } from './entities/department.entity';
-import { DataSource, ILike, Like, Repository } from 'typeorm';
+import { DataSource, ILike, In, Like, Repository } from 'typeorm';
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import Redis from 'ioredis';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
@@ -10,6 +10,7 @@ import { QueryDto } from 'src/dto/query.dto';
 import { hashKey } from 'src/utils/hash';
 import { Brand } from '../brands/entities/brand.entity';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
+import { DeleteDepartmentsDto } from './dto/delete-departments.dto';
 
 @Injectable()
 export class DepartmentsService {
@@ -119,6 +120,8 @@ export class DepartmentsService {
     })
   }
 
+  async
+
   async getById(id: number) {
     const department = await this.departmentRepository.findOne({ where: { id, isActive: true } });
     if (!department) throw new HttpException('Department not found', HttpStatus.NOT_FOUND);
@@ -130,4 +133,22 @@ export class DepartmentsService {
     if (!department) throw new HttpException('Department not found', HttpStatus.NOT_FOUND);
     return department;
   }
+
+  async deleteMany(deleteDepartmentsDto: DeleteDepartmentsDto) {
+      const { ids } = deleteDepartmentsDto;
+
+      return await this.dataSource.transaction(async (manager) => {
+        const departments = await manager.find(Department, {where: { id: In(ids), isActive: true }});
+
+        if (!departments || departments.length === 0) 
+          throw new HttpException('Not found any departments', HttpStatus.NOT_FOUND);
+        
+        for (const department of departments) 
+          if (department.publicId) await this.cloudinaryService.deleteFile(department.publicId).catch(() => null);
+
+        await manager.update(Department, { id: In(ids) }, { isActive: false });
+
+        return { deletedIds: ids };
+      })
+    }
 }

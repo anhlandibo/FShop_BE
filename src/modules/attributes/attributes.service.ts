@@ -1,5 +1,5 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { DataSource, ILike, Like, Repository } from 'typeorm';
+import { DataSource, ILike, In, Like, Repository } from 'typeorm';
 import { Attribute } from './entities/attribute.entity';
 import { CreateAttributeDto } from './dto/create-attribute.dto';
 import { QueryDto } from 'src/dto/query.dto';
@@ -7,6 +7,7 @@ import { UpdateAttributeDto } from './dto/update-attribute.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { AttributeCategory } from './entities/attribute-category.entity';
 import { Category } from '../categories/entities/category.entity';
+import { DeleteAttributesDto } from './dto/delete-attributes.dto';
 
 @Injectable()
 export class AttributesService {
@@ -129,4 +130,20 @@ export class AttributesService {
       return attributeCategories;
     })
   }
+
+  async deleteMany(deleteAttributesDto: DeleteAttributesDto) {
+    const { ids } = deleteAttributesDto;
+
+    return await this.dataSource.transaction(async (manager) => {
+      const attributes = await manager.find(Attribute, {where: { id: In(ids), isActive: true }});
+
+      if (!attributes || attributes.length === 0) 
+        throw new HttpException('Not found any attributes', HttpStatus.NOT_FOUND);
+
+      await manager.update(Attribute, { id: In(ids) }, { isActive: false });
+
+      return { deletedIds: ids, message: 'Attributes disabled successfully' };
+    })
+  }
+         
 }
