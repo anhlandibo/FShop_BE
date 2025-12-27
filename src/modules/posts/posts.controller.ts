@@ -63,11 +63,21 @@ export class PostsController {
   @UseGuards(AuthGuard('jwt'))
   @Delete(':id')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Delete a post' })
+  @ApiOperation({ summary: 'Delete a post (soft delete)' })
   @ApiNotFoundResponse({ description: 'Post not found' })
   delete(@Req() request: Request, @Param('id') id: number) {
     const { id: userId } = request['user'];
     return this.postsService.delete(id, userId);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Put(':id/restore')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Restore a deleted post' })
+  @ApiNotFoundResponse({ description: 'Deleted post not found' })
+  restore(@Req() request: Request, @Param('id') id: number) {
+    const { id: userId } = request['user'];
+    return this.postsService.restore(id, userId);
   }
 
   @UseGuards(AuthGuard('jwt'))

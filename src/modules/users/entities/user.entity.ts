@@ -34,9 +34,6 @@ export class User {
   @Column()
   fullName: string;
 
-  @Column({ type: 'text', nullable: true })
-  bio: string;
-
   @Column({ unique: true })
   email: string;
 

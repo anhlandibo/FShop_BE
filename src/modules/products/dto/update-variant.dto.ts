@@ -15,6 +15,20 @@ export class UpdateProductVariantDto {
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
+  @Transform(({ value }) => {
+    // ← THÊM TRANSFORM NÀY
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value).map((v: any) =>
+          plainToInstance(AttributeCategoryDto, v),
+        );
+      } catch (err) {
+        console.error('JSON parse error for attributes:', err);
+        return [];
+      }
+    }
+    return value;
+  })
   @Type(() => AttributeCategoryDto)
   attributes?: AttributeCategoryDto[];
 }

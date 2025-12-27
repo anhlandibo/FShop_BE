@@ -193,7 +193,9 @@ export class CategoriesService {
 
   async delete(id: number) {
     return await this.dataSource.transaction(async (manager) => {
-      const category = await manager.findOne(Category, { where: { id, isActive: true } });
+      const category = await manager.findOne(Category, {
+        where: { id, isActive: true },
+      });
       if (!category)
         throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
 
@@ -230,17 +232,16 @@ export class CategoriesService {
     */
     const [data, total] = await this.categoryRepository.findAndCount({
       where: search
-        ? [
-            { isActive: true, name: ILike(`%${search}%`) },
-          ]
+        ? [{ isActive: true, name: ILike(`%${search}%`) }]
         : { isActive: true },
       ...(page && limit && { take: limit, skip: (page - 1) * limit }),
       order: { [sortBy]: sortOrder },
       relations: {
         attributeCategories: {
-          attribute: true, 
-          category: true, 
+          attribute: true, // 👈 load Attribute
+          category: true, // 👈 load Category (nếu cần, nhưng Category chính là bảng này)
         },
+        department: true,
       },
     });
 

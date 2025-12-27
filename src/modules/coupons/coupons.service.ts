@@ -35,8 +35,9 @@ export class CouponsService {
 
   async create(createCouponDto: CreateCouponDto) {
     return await this.dataSource.transaction(async (manager) => {
+      // Check if code exists in active coupons (partial unique index will also enforce this)
       const existing = await manager.findOne(Coupon, {
-        where: { code: createCouponDto.code },
+        where: { code: createCouponDto.code, isActive: true },
       });
       if (existing) throw new HttpException('Coupon code already exists',HttpStatus.BAD_REQUEST); 
         
@@ -133,7 +134,7 @@ export class CouponsService {
 
   async getById(id: number) {
     return await this.couponRepository.findOne({
-      where: { id },
+      where: { id, isActive: true },
       relations: ['targets', 'redemptions'],
     });
   }
@@ -141,17 +142,17 @@ export class CouponsService {
   async update(id: number, updateCouponDto: UpdateCouponDto) {
     return await this.dataSource.transaction(async (manager) => {
       const coupon = await manager.findOne(Coupon, {
-        where: { id },
+        where: { id, isActive: true },
         relations: ['targets'],
       });
       if (!coupon) throw new HttpException('Coupon not found', HttpStatus.NOT_FOUND);
 
-      // check code trùng
+      // Check code trùng (chỉ trong active coupons)
       if (updateCouponDto.code && updateCouponDto.code !== coupon.code) {
         const exists = await manager.findOne(Coupon, {
-          where: { code: updateCouponDto.code },
+          where: { code: updateCouponDto.code, isActive: true },
         });
-        if (exists) 
+        if (exists)
           throw new HttpException(`Coupon code "${updateCouponDto.code}" already exists`, HttpStatus.BAD_REQUEST);
         coupon.code = updateCouponDto.code;
       }
@@ -181,20 +182,41 @@ export class CouponsService {
 
   async delete(id: number) {
     return await this.dataSource.transaction(async (manager) => {
-      const coupon = await manager.findOne(Coupon, { where: { id } });
+      const coupon = await manager.findOne(Coupon, {
+        where: { id, isActive: true }
+      });
       if (!coupon)
         throw new HttpException('Coupon not found', HttpStatus.NOT_FOUND);
 
-      const usageCount = await this.couponRedemptionRepository.count({ where: { coupon: { id } } });
-      if (usageCount > 0) 
-        throw new HttpException('Cannot delete this coupon because it has been used by customers. You can only update its status to INACTIVE.', HttpStatus.BAD_REQUEST);
-    
+      // Soft delete: set isActive to false
+      coupon.isActive = false;
+      await manager.save(Coupon, coupon);
 
-      await manager.delete(Coupon, coupon);
-      return { 
-        deleted: true, 
+      return {
+        deleted: true,
         id,
-        message: 'Coupon deleted successfully.' 
+        message: 'Coupon deleted successfully.'
+      };
+    });
+  }
+
+  async restore(id: number) {
+    return await this.dataSource.transaction(async (manager) => {
+      const coupon = await manager.findOne(Coupon, {
+        where: { id, isActive: false }
+      });
+      if (!coupon)
+        throw new HttpException('Deleted coupon not found', HttpStatus.NOT_FOUND);
+
+      // Restore: set isActive to true
+      coupon.isActive = true;
+      await manager.save(Coupon, coupon);
+
+      return {
+        restored: true,
+        id,
+        coupon,
+        message: 'Coupon restored successfully.'
       };
     });
   }
@@ -202,9 +224,9 @@ export class CouponsService {
   async validate(code: string, userId: number) {
     const now = new Date();
 
-    // tìm coupon
+    // Tìm coupon (chỉ active coupons)
     const coupon = await this.couponRepository.findOne({
-      where: { code },
+      where: { code, isActive: true },
       relations: ['targets'],
     });
     if (!coupon) return { valid: false, reason: 'Coupon not found' };
@@ -294,9 +316,9 @@ export class CouponsService {
   ) {
     const now = new Date();
 
-    // 1. Find coupon
+    // 1. Find coupon (only active coupons)
     const coupon = await this.couponRepository.findOne({
-      where: { code },
+      where: { code, isActive: true },
       relations: ['targets'],
     });
     if (!coupon) throw new HttpException('Coupon not found', HttpStatus.NOT_FOUND);
@@ -377,8 +399,8 @@ export class CouponsService {
 
   async apply(code: string, orderId: number, userId: number, transactionManager?: EntityManager) {
     const execute = async (manager: EntityManager) => {
-      // 1. Find coupon
-      const coupon = await manager.findOne(Coupon, { where: { code }, relations: ['targets'] });
+      // 1. Find coupon (only active coupons)
+      const coupon = await manager.findOne(Coupon, { where: { code, isActive: true }, relations: ['targets'] });
       if (!coupon) throw new HttpException('Coupon not found', HttpStatus.NOT_FOUND);
 
       // 2. Check if already applied
@@ -418,7 +440,7 @@ export class CouponsService {
   async redeem(code: string, orderId: number, userId: number) {
     return await this.dataSource.transaction(async (manager) => {
       const redemption = await manager.findOne(CouponRedemption, {
-        where: { coupon: { code }, order: { id: orderId }, user: { id: userId } },
+        where: { coupon: { code, isActive: true }, order: { id: orderId }, user: { id: userId } },
         relations: ['coupon']
       })
       if (!redemption) throw new HttpException('Coupon not applied or invalid order', HttpStatus.NOT_FOUND);
@@ -452,10 +474,11 @@ export class CouponsService {
     const { page, limit, search, sortBy = 'id', sortOrder = 'DESC', discountType } = query;
     const now = new Date();
 
-    // Lấy tất cả coupons đang active và chưa hết hạn
+    // Lấy tất cả coupons đang active, isActive = true và chưa hết hạn
     const queryBuilder = this.couponRepository
       .createQueryBuilder('coupon')
       .where('coupon.status = :status', { status: CouponStatus.ACTIVE })
+      .andWhere('coupon.isActive = :isActive', { isActive: true })
       .andWhere('coupon.endDate > :now', { now })
       .andWhere('coupon.startDate <= :now', { now });
 
@@ -582,11 +605,12 @@ export class CouponsService {
       validItems.map(i => i.categoryId).filter((id): id is number => id !== undefined)
     );
 
-    // 4. Query tất cả coupons đang active và trong thời gian hiệu lực
+    // 4. Query tất cả coupons đang active, isActive = true và trong thời gian hiệu lực
     const coupons = await this.couponRepository
       .createQueryBuilder('coupon')
       .leftJoinAndSelect('coupon.targets', 'target')
       .where('coupon.status = :status', { status: CouponStatus.ACTIVE })
+      .andWhere('coupon.isActive = :isActive', { isActive: true })
       .andWhere('coupon.startDate <= :now', { now })
       .andWhere('coupon.endDate >= :now', { now })
       // Fix logic: usageLimit = 0 nghĩa là không giới hạn, NULL cũng vậy

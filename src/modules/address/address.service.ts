@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Address } from './entities/address.entity';
-import { Like, Repository } from 'typeorm';
+import { ILike, Like, Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { QueryDto } from 'src/dto/query.dto';
 import { CreateAddressDto, UpdateAddressDto } from './dto';
@@ -15,7 +15,7 @@ export class AddressService {
 
   async create(userId: number, createAddressDto: CreateAddressDto) {
     const { isDefault } = createAddressDto;
-    const user = await this.userRepository.findOne({ where: { id: userId } });
+    const user = await this.userRepository.findOne({ where: { id: userId, isActive: true } });
     if (!user) throw new HttpException('User not found', HttpStatus.NOT_FOUND);
 
     if (isDefault)
@@ -36,8 +36,13 @@ export class AddressService {
     const { page, limit, search, sortBy = 'id', sortOrder = 'DESC' } = query;
     const [data, total] = await this.addressRepository.findAndCount({
       where: search
-        ? [{ detailAddress: Like(`%${search}%`) }, { province: Like(`%${search}%`) }, { district: Like(`%${search}%`) }, { commune: Like(`%${search}%`) }]
-        : {},
+              ? [
+                  { isActive: true, district: ILike(`%${search}%`) },
+                  { isActive: true, province: ILike(`%${search}%`) },
+                  { isActive: true, commune: ILike(`%${search}%`) },
+                  { isActive: true, detailAddress: ILike(`%${search}%`) },
+                ]
+              : { isActive: true },
       ...(page && limit && { take: limit, skip: (page - 1) * limit }),
       order: { [sortBy]: sortOrder },
     });
@@ -54,28 +59,28 @@ export class AddressService {
   }
 
   async getMyAddresses(userId: number) {
-    const addresses = await this.addressRepository.find({ where: { user: { id: userId } } });
+    const addresses = await this.addressRepository.find({ where: { user: { id: userId }, isActive: true } });
     return addresses;
   }
 
   async getAddressById(userId: number, addressId: number) {
-    const address = await this.addressRepository.findOne({ where: { id: addressId, user: { id: userId } } });
+    const address = await this.addressRepository.findOne({ where: { id: addressId, user: { id: userId }, isActive: true } });
     if (!address) throw new HttpException('Address not found', HttpStatus.NOT_FOUND);
     return address;
   }
 
   async delete(id: number) {
-    const address = await this.addressRepository.findOne({ where: { id } });
+    const address = await this.addressRepository.findOne({ where: { id, isActive: true } });
     if (!address) throw new HttpException('Address not found', HttpStatus.NOT_FOUND);
-    await this.addressRepository.remove(address);
+    await this.addressRepository.update({ id }, { isActive: false });
     return {
-      message: 'Address deleted successfully',
+      message: 'Address soft deleted successfully',
       deletedId: id,
     };
   }
 
   async update(userId: number, id: number, updateAddressDto: UpdateAddressDto) {
-    const address = await this.addressRepository.findOne({ where: {id, user: {id: userId}}, relations: ['user']})
+    const address = await this.addressRepository.findOne({ where: {id, isActive: true, user: {id: userId}}, relations: ['user']})
     if (!address) throw new HttpException('Address not found', HttpStatus.NOT_FOUND)
 
     const { isDefault } = updateAddressDto;
@@ -94,22 +99,22 @@ export class AddressService {
   }
 
   async setDefault(userId: number, addressId: number) {
-  const address = await this.addressRepository.findOne({
-    where: { id: addressId, user: { id: userId } },
-  });
+    const address = await this.addressRepository.findOne({
+      where: { id: addressId, user: { id: userId }, isActive: true },
+    });
 
-  if (!address) throw new HttpException('Address not found', HttpStatus.NOT_FOUND);
-  
-  if (address.isDefault) return { message: 'Address is already set as default' };
+    if (!address) throw new HttpException('Address not found', HttpStatus.NOT_FOUND);
+    
+    if (address.isDefault) return { message: 'Address is already set as default' };
 
-  await this.addressRepository.update({ user: { id: userId }, isDefault: true }, { isDefault: false });
+    await this.addressRepository.update({ user: { id: userId }, isDefault: true }, { isDefault: false });
 
-  address.isDefault = true;
-  await this.addressRepository.save(address);
+    address.isDefault = true;
+    await this.addressRepository.save(address);
 
-  return {
-    message: 'Set default address successfully',
-    data: address,
-  };
-}
+    return {
+      message: 'Set default address successfully',
+      data: address,
+      };
+  }
 }

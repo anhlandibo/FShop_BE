@@ -36,6 +36,9 @@ export class Address {
   @Column({ default: false})
   isDefault: boolean;
 
+  @Column({ type: 'boolean', default: true })
+  isActive: boolean;
+
   @ManyToOne(() => User, (user) => user.addresses)
   @JoinColumn({ name: 'userId' })
   @Exclude()
