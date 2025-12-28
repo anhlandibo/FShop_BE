@@ -15,7 +15,7 @@ import {
 import { PostsService } from './posts.service';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiNotFoundResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { CreatePostDto, UpdatePostDto, CreateCommentDto, UpdateCommentDto, QueryPostsDto } from './dto';
+import { CreatePostDto, UpdatePostDto, CreateCommentDto, UpdateCommentDto, QueryPostsDto, DeletePostsDto, RestorePostsDto } from './dto';
 import { AuthGuard } from '@nestjs/passport';
 
 @ApiTags('Posts')
@@ -180,5 +180,42 @@ export class PostsController {
   @ApiNotFoundResponse({ description: 'Author not found' })
   getAuthorPosts(@Param('userId') userId: number, @Query('page') page?: number, @Query('limit') limit?: number) {
     return this.postsService.getAuthorPosts(userId, page, limit);
+  }
+
+  // ADMIN ENDPOINTS
+  @UseGuards(AuthGuard('jwt'))
+  @Delete('admin/:id')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Admin: Delete a post (soft delete)' })
+  @ApiNotFoundResponse({ description: 'Post not found' })
+  adminDeletePost(@Param('id') id: number) {
+    return this.postsService.adminDelete(id);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @PostMethod('admin/remove-multiple')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Admin: Delete multiple posts (soft delete)' })
+  @ApiNotFoundResponse({ description: 'One or more posts not found' })
+  adminDeleteMultiplePosts(@Body() dto: DeletePostsDto) {
+    return this.postsService.adminDeleteMultiple(dto);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Put('admin/:id/restore')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Admin: Restore a deleted post' })
+  @ApiNotFoundResponse({ description: 'Deleted post not found' })
+  adminRestorePost(@Param('id') id: number) {
+    return this.postsService.adminRestore(id);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @PostMethod('admin/restore-multiple')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Admin: Restore multiple deleted posts' })
+  @ApiNotFoundResponse({ description: 'One or more deleted posts not found' })
+  adminRestoreMultiplePosts(@Body() dto: RestorePostsDto) {
+    return this.postsService.adminRestoreMultiple(dto);
   }
 }

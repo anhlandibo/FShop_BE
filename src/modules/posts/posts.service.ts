@@ -2,7 +2,7 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, Like, In, ILike } from 'typeorm';
 import { Post, PostImage, PostProduct, PostLike, PostComment, PostBookmark, PostShare } from './entities';
-import { CreatePostDto, UpdatePostDto, CreateCommentDto, UpdateCommentDto, QueryPostsDto } from './dto';
+import { CreatePostDto, UpdatePostDto, CreateCommentDto, UpdateCommentDto, QueryPostsDto, DeletePostsDto, RestorePostsDto } from './dto';
 import { User } from '../users/entities/user.entity';
 import { Product } from '../products/entities';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
@@ -523,5 +523,105 @@ export class PostsService {
       },
       data: posts,
     };
+  }
+
+  // ADMIN DELETE SINGLE POST (SOFT DELETE)
+  async adminDelete(postId: number) {
+    return await this.dataSource.transaction(async (manager) => {
+      const post = await manager.findOne(Post, {
+        where: { id: postId },
+      });
+
+      if (!post)
+        throw new HttpException('Post not found', HttpStatus.NOT_FOUND);
+
+      if (!post.isActive)
+        throw new HttpException('Post is already deleted', HttpStatus.BAD_REQUEST);
+
+      // Soft delete: set isActive to false
+      post.isActive = false;
+      await manager.save(post);
+
+      return {
+        message: 'Post deleted successfully',
+        deletedId: postId,
+      };
+    });
+  }
+
+  // ADMIN DELETE MULTIPLE POSTS (SOFT DELETE)
+  async adminDeleteMultiple(dto: DeletePostsDto) {
+    const { ids } = dto;
+
+    return await this.dataSource.transaction(async (manager) => {
+      const posts = await manager.find(Post, {
+        where: { id: In(ids), isActive: true }
+      });
+
+      if (!posts || posts.length === 0)
+        throw new HttpException(
+          'No active posts found with the provided IDs',
+          HttpStatus.NOT_FOUND
+        );
+
+      // Bulk update: set isActive to false
+      await manager.update(Post, { id: In(posts.map(p => p.id)) }, { isActive: false });
+
+      return {
+        message: `${posts.length} post(s) deleted successfully`,
+        deletedIds: posts.map(p => p.id),
+      };
+    });
+  }
+
+  // ADMIN RESTORE SINGLE POST
+  async adminRestore(postId: number) {
+    return await this.dataSource.transaction(async (manager) => {
+      const post = await manager.findOne(Post, {
+        where: { id: postId, isActive: false },
+        relations: ['user', 'images', 'postProducts'],
+      });
+
+      if (!post)
+        throw new HttpException(
+          'Deleted post not found',
+          HttpStatus.NOT_FOUND
+        );
+
+      // Restore: set isActive to true
+      post.isActive = true;
+      await manager.save(post);
+
+      return {
+        message: 'Post restored successfully',
+        restoredId: postId,
+        post,
+      };
+    });
+  }
+
+  // ADMIN RESTORE MULTIPLE POSTS
+  async adminRestoreMultiple(dto: RestorePostsDto) {
+    const { ids } = dto;
+
+    return await this.dataSource.transaction(async (manager) => {
+      const posts = await manager.find(Post, {
+        where: { id: In(ids), isActive: false }
+      });
+
+      if (!posts || posts.length === 0)
+        throw new HttpException(
+          'No deleted posts found with the provided IDs',
+          HttpStatus.NOT_FOUND
+        );
+
+      // Bulk update: set isActive to true
+      await manager.update(Post, { id: In(posts.map(p => p.id)) }, { isActive: true });
+
+      return {
+        message: `${posts.length} post(s) restored successfully`,
+        restoredIds: posts.map(p => p.id),
+      };
+    });
   }
 }
