@@ -786,6 +786,7 @@ export class ProductsService {
           interactions: userInteractions 
         })
       );
+      console.log('AI Recommendation Data:', data);
 
       const suggestedProductIds: number[] = data.product_ids || [];
       if (suggestedProductIds.length === 0) return [];

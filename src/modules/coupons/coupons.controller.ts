@@ -70,10 +70,17 @@ export class CouponsController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete coupon by ID' })
+  @ApiOperation({ summary: 'Delete coupon by ID (soft delete)' })
   @ApiNotFoundResponse({description: 'Coupon not found'})
   delete(@Param('id') id: number) {
     return this.couponsService.delete(id);
+  }
+
+  @Patch(':id/restore')
+  @ApiOperation({ summary: 'Restore deleted coupon by ID' })
+  @ApiNotFoundResponse({description: 'Deleted coupon not found'})
+  restore(@Param('id') id: number) {
+    return this.couponsService.restore(id);
   }
 
   @Post('validate')

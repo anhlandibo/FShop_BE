@@ -33,6 +33,9 @@ export class Post {
   @UpdateDateColumn()
   updatedAt: Date;
 
+  @Column({ type: 'boolean', default: true })
+  isActive: boolean;
+
   @OneToMany(() => PostImage, (image) => image.post, { cascade: true })
   images: PostImage[];
 

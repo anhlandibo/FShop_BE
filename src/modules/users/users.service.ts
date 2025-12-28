@@ -214,11 +214,6 @@ export class UsersService {
       user.fullName = updateProfileDto.fullName;
     }
 
-    // 3.5. Cập nhật Bio nếu có gửi lên
-    if (updateProfileDto.bio !== undefined) {
-      user.bio = updateProfileDto.bio;
-    }
-
     // 4. Lưu vào DB
     return this.usersRepository.save(user);
   }

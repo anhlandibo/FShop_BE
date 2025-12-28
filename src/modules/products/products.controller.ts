@@ -101,7 +101,8 @@ export class ProductsController {
   @UseGuards(AuthGuard('jwt')) 
   @ApiOperation({ summary: 'Get personalized recommendations based on purchase history' })
   getPersonalizedRecommendations(@Req() req: any) {
-    const {id} = req['user']; 
+    const {id} = req['user'];
+    console.log('User ID:', id);
     return this.productsService.getPersonalizedRecommendations(id);
   }
 

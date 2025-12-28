@@ -13,7 +13,12 @@ import { DataSource, FindOptionsWhere, Like, Repository } from 'typeorm';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { User } from '../users/entities/user.entity';
 import { Cart, CartItem } from '../carts/entities';
-import { NotificationType, OrderStatus, Role, ShippingMethod } from 'src/constants';
+import {
+  NotificationType,
+  OrderStatus,
+  Role,
+  ShippingMethod,
+} from 'src/constants';
 import { ProductVariant } from '../products/entities';
 import { Address } from '../address/entities/address.entity';
 import {
@@ -77,14 +82,14 @@ export class OrdersService {
       if (!address)
         throw new HttpException('Address not found', HttpStatus.NOT_FOUND);
       const user = await manager.findOne(User, { where: { id: userId } });
-      if (!user) throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+      if (!user)
+        throw new HttpException('User not found', HttpStatus.NOT_FOUND);
 
       // 2. Get cart with items
       const cart = await manager.findOne(Cart, {
         where: { user: { id: userId } },
         relations: ['items', 'items.variant', 'user', 'items.variant.product'],
       });
-      
 
       // 3. Calculate shipping fee
       const shippingFee = this.calculateShippingFee(shippingMethod);
@@ -118,7 +123,7 @@ export class OrdersService {
       for (const itemDto of items) {
         const variant = await manager.findOne(ProductVariant, {
           where: { id: itemDto.variantId },
-          lock: { mode: 'pessimistic_write' }
+          lock: { mode: 'pessimistic_write' },
         });
 
         if (!variant) {
@@ -129,18 +134,20 @@ export class OrdersService {
         }
 
         const variantWithProduct = await manager.findOne(ProductVariant, {
-            where: { id: itemDto.variantId },
-            relations: ['product', 'product.category'],
+          where: { id: itemDto.variantId },
+          relations: ['product', 'product.category'],
         });
         if (!variantWithProduct) {
-             throw new HttpException(
-                `Variant ID ${itemDto.variantId} not found`,
-                HttpStatus.NOT_FOUND,
-             );
+          throw new HttpException(
+            `Variant ID ${itemDto.variantId} not found`,
+            HttpStatus.NOT_FOUND,
+          );
         }
         variant.product = variantWithProduct.product;
 
         // B. Check stock
+        console.log(itemDto);
+        console.log(variant);
         if (itemDto.quantity > variant.remaining)
           throw new HttpException(
             `Not enough stock for ${variant.product.name}`,
@@ -153,14 +160,14 @@ export class OrdersService {
 
         stockLogItems.push({
           variant: variant,
-          quantity: itemDto.quantity
+          quantity: itemDto.quantity,
         });
 
         const orderItem = manager.create(OrderItem, {
           order,
           variant: variant,
           quantity: itemDto.quantity,
-          price: variant.product.price, 
+          price: variant.product.price,
         });
         await manager.save(orderItem);
 
@@ -191,7 +198,7 @@ export class OrdersService {
           }
         }
       }
-      
+
       if (stockLogItems.length > 0) {
         await this.stockService.createLog(
           manager,
@@ -236,18 +243,22 @@ export class OrdersService {
       await manager.save(order);
 
       // 8. Create notification
-      this.notiService.sendNotification(
-          userId, 
-          'Place order successfully! 🎉', 
+      this.notiService
+        .sendNotification(
+          userId,
+          'Place order successfully! 🎉',
           `Order #${order.id} is pending.`,
-          NotificationType.ORDER
-      ).catch(console.error);
+          NotificationType.ORDER,
+        )
+        .catch(console.error);
 
-      this.notiService.sendToAdmin(
+      this.notiService
+        .sendToAdmin(
           'New Order 📦',
           `User #${userId} has placed a new order #${order.id}`,
-          NotificationType.ORDER
-      ).catch(console.error);
+          NotificationType.ORDER,
+        )
+        .catch(console.error);
 
       return order;
     });
@@ -273,7 +284,7 @@ export class OrdersService {
     });
 
     // Get all order IDs for review checking
-    const orderIds = data.map(order => order.id);
+    const orderIds = data.map((order) => order.id);
 
     // Query all reviews for these orders by this user
     let reviews: Review[] = [];
@@ -291,15 +302,15 @@ export class OrdersService {
 
     // Create a map for quick lookup: key = "orderId-variantId", value = true
     const reviewMap = new Map<string, boolean>();
-    reviews.forEach(review => {
+    reviews.forEach((review) => {
       const key = `${review.order.id}-${review.variant.id}`;
       reviewMap.set(key, true);
     });
 
     // Add isReviewed field to each order item
-    const enhancedData = data.map(order => ({
+    const enhancedData = data.map((order) => ({
       ...order,
-      items: order.items.map(item => ({
+      items: order.items.map((item) => ({
         ...item,
         isReviewed: reviewMap.has(`${order.id}-${item.variant.id}`),
       })),
@@ -310,9 +321,26 @@ export class OrdersService {
     return response;
   }
 
-  async getOrderById(userId: number, id: number) {
+  async getOrderByIdForUser(userId: number, id: number) {
     const order = await this.orderRepository.findOne({
       where: { user: { id: userId }, id },
+      relations: [
+        'items',
+        'items.variant',
+        'items.variant.product',
+        'items.variant.variantAttributeValues',
+        'items.variant.variantAttributeValues.attributeCategory',
+        'items.variant.variantAttributeValues.attributeCategory.attribute',
+      ],
+    });
+    if (!order)
+      throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
+    return order;
+  }
+
+  async getOrderById(id: number) {
+    const order = await this.orderRepository.findOne({
+      where: { id },
       relations: [
         'items',
         'items.variant',
@@ -407,7 +435,8 @@ export class OrdersService {
 
       // Handle CANCELED status - restore stock and remove coupon redemption
       if (next === OrderStatus.CANCELED || next === OrderStatus.RETURNED) {
-        const stockLogItems: { variant: ProductVariant; quantity: number }[] = [];
+        const stockLogItems: { variant: ProductVariant; quantity: number }[] =
+          [];
         for (const it of order.items) {
           const variant = await manager
             .createQueryBuilder(ProductVariant, 'variant')
@@ -423,16 +452,17 @@ export class OrdersService {
         }
 
         if (stockLogItems.length > 0) {
-          const reasonNote = next === OrderStatus.CANCELED 
-            ? `Return products for shop for order #${order.id}` 
-            : `Return products for order #${order.id}`;
-            
+          const reasonNote =
+            next === OrderStatus.CANCELED
+              ? `Return products for shop for order #${order.id}`
+              : `Return products for order #${order.id}`;
+
           await this.stockService.createLog(
             manager,
             StockLogType.IN,
             `${reasonNote}${actor.reason ? ` - Reason: ${actor.reason}` : ''}`,
             stockLogItems,
-            actor.id
+            actor.id,
           );
         }
 
@@ -477,28 +507,35 @@ export class OrdersService {
       await manager.save(order);
 
       if (prev !== next && order.user) {
-         let title = `Update order #${orderId}`;
-         let message = `Order status: ${next} status`;
+        let title = `Update order #${orderId}`;
+        let message = `Order status: ${next} status`;
 
-         switch (next) {
-              case OrderStatus.CONFIRMED:
-                  message = `Order #${order.id} has been confirmed and is now being processed.`;
-                  break;
-              case OrderStatus.SHIPPED:
-                  message = `Shipper is now processing your order #${order.id}.`;
-                  break;
-              case OrderStatus.CANCELED:
-                  title = `Order #${orderId} has been canceled`;
-                  message = `Reason: ${actor.reason || 'None'}`;
-                  break;
-              case OrderStatus.DELIVERED:
-                  title = `Order #${orderId} has been delivered`;
-                  message = `Order #${order.id} has been successfully delivered. Enjoy your purchase!`;
-                  break;
-          }
+        switch (next) {
+          case OrderStatus.CONFIRMED:
+            message = `Order #${order.id} has been confirmed and is now being processed.`;
+            break;
+          case OrderStatus.SHIPPED:
+            message = `Shipper is now processing your order #${order.id}.`;
+            break;
+          case OrderStatus.CANCELED:
+            title = `Order #${orderId} has been canceled`;
+            message = `Reason: ${actor.reason || 'None'}`;
+            break;
+          case OrderStatus.DELIVERED:
+            title = `Order #${orderId} has been delivered`;
+            message = `Order #${order.id} has been successfully delivered. Enjoy your purchase!`;
+            break;
+        }
 
-          // Gửi thông báo cho User
-          this.notiService.sendNotification(order.user.id, title, message, NotificationType.ORDER).catch(console.error);
+        // Gửi thông báo cho User
+        this.notiService
+          .sendNotification(
+            order.user.id,
+            title,
+            message,
+            NotificationType.ORDER,
+          )
+          .catch(console.error);
       }
 
       return { message: 'Order status updated', from: prev, to: next };
@@ -512,37 +549,46 @@ export class OrdersService {
         relations: ['user'],
       });
 
-      if (!order) throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
-      if (order.user.id !== userId) throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
-      
+      if (!order)
+        throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
+      if (order.user.id !== userId)
+        throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
+
       // Chỉ cho phép confirm khi đang giao hàng
       if (order.status !== OrderStatus.SHIPPED) {
-         throw new HttpException('Order must be in SHIPPING status to confirm', HttpStatus.BAD_REQUEST);
+        throw new HttpException(
+          'Order must be in SHIPPING status to confirm',
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
       // Update trạng thái
       order.status = OrderStatus.DELIVERED;
       // Nếu là COD thì khi nhận hàng xong coi như đã thanh toán
       if (order.paymentStatus === PaymentStatus.PENDING) {
-          order.paymentStatus = PaymentStatus.COMPLETED;
+        order.paymentStatus = PaymentStatus.COMPLETED;
       }
       order.updatedAt = new Date();
       await manager.save(order);
 
       // 1. Báo Admin
-      this.notiService.sendToAdmin(
+      this.notiService
+        .sendToAdmin(
           'User confirmed delivery',
           `User ${order.user.fullName} has confirmed delivery of order #${order.id}`,
-          NotificationType.ORDER
-      ).catch(console.error);
+          NotificationType.ORDER,
+        )
+        .catch(console.error);
 
       // 2. Cảm ơn User
-      this.notiService.sendNotification(
+      this.notiService
+        .sendNotification(
           userId,
           'Thanks for shopping with us! 🎉',
           `Order #${order.id} has been delivered.`,
-          NotificationType.ORDER
-      ).catch(console.error);
+          NotificationType.ORDER,
+        )
+        .catch(console.error);
 
       return { success: true, status: OrderStatus.DELIVERED };
     });

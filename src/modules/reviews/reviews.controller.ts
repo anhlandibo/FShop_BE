@@ -100,10 +100,21 @@ export class ReviewsController {
 
   @UseGuards(AuthGuard('jwt'))
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete a review' })
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete a review (soft delete)' })
   @ApiNotFoundResponse({ description: 'Review not found' })
   deleteReview(@Param('id') id: number, @Req() request: Request) {
     const { userId } = request['user']
     return this.reviewsService.deleteReview(id, userId);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Patch(':id/restore')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Restore a deleted review' })
+  @ApiNotFoundResponse({ description: 'Deleted review not found' })
+  restoreReview(@Param('id') id: number, @Req() request: Request) {
+    const { userId } = request['user']
+    return this.reviewsService.restoreReview(id, userId);
   }
 }
