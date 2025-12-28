@@ -95,7 +95,7 @@ export class UsersService {
       existingUser.avatar = uploaded?.secure_url;
       existingUser.publicId = uploaded?.public_id;
     }
-    return this.usersRepository.update(id, existingUser);
+    return this.usersRepository.save(existingUser);
   }
 
   async findByEmail(email: string) {
@@ -270,13 +270,17 @@ export class UsersService {
   async verifyEmail(token: string) {
     // Lấy userId từ Redis dựa vào token
     const userId = await this.redis.get(`verify_user:${token}`);
-    
+
     if (!userId) {
       throw new HttpException('Invalid or expired verification token', HttpStatus.BAD_REQUEST);
     }
 
     // Update user trong DB
-    await this.usersRepository.update(userId, { isVerified: true });
+    const user = await this.usersRepository.findOne({ where: { id: Number(userId) } });
+    if (!user) throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+
+    user.isVerified = true;
+    await this.usersRepository.save(user);
 
     // Xóa token trong Redis để không dùng lại được nữa
     await this.redis.del(`verify_user:${token}`);
