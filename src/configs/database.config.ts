@@ -10,5 +10,9 @@ const getDatabaseConfig = (configService: ConfigService): TypeOrmModuleOptions =
     database: configService.get<string>('DB_NAME'),
     autoLoadEntities: true,
     synchronize: true,
+    timezone: '+07:00', // Vietnam timezone (UTC+7)
+    extra: {
+        timezone: 'Asia/Ho_Chi_Minh',
+    },
 })
 export default getDatabaseConfig

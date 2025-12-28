@@ -186,12 +186,11 @@ export class AuthService {
           const buffer = Buffer.from(imageResponse.data, 'binary');
           const uploaded = await this.cloudinaryService.uploadBuffer(buffer);
           if (uploaded?.secure_url) {
-            await this.usersRepository.update(user.id, {
-              avatar: uploaded.secure_url,
-              publicId: uploaded.public_id,
-              fullName,
-              role: Role.User,
-            });
+            user.avatar = uploaded.secure_url;
+            user.publicId = uploaded.public_id;
+            user.fullName = fullName;
+            user.role = Role.User;
+            await this.usersRepository.save(user);
           }
         } catch (err) {
           console.warn('Upload Google avatar failed:', err.message);
@@ -229,13 +228,12 @@ export class AuthService {
     const isMatch = await comparePassword(oldPassword, user.password);
     if (!isMatch) throw new HttpException('Incorrect old password', HttpStatus.BAD_REQUEST);
 
-    if (oldPassword === newPassword) 
+    if (oldPassword === newPassword)
       throw new HttpException('New password cannot be the same as old password', HttpStatus.BAD_REQUEST)
-    
+
     const newHashedPassword = await hashPassword(newPassword);
-    await this.usersRepository.update(userId, { 
-      password: newHashedPassword 
-    });
+    user.password = newHashedPassword;
+    await this.usersRepository.save(user);
 
     await this.logoutAll(userId);
 
@@ -282,15 +280,20 @@ export class AuthService {
 
   async resetPassword(resetPasswordDto: ResetPasswordDto) {
     const { token, newPassword, confirmNewPassword } = resetPasswordDto;
-    if (newPassword !== confirmNewPassword) 
+    if (newPassword !== confirmNewPassword)
       throw new HttpException('Passwords do not match', HttpStatus.BAD_REQUEST);
     const userId = await this.redis.get(`forgot_pw:${token}`);
-    if (!userId) 
+    if (!userId)
       throw new HttpException('Invalid or expired reset token', HttpStatus.BAD_REQUEST);
-    const hashedPassword = await hashPassword(newPassword);
-    await this.usersRepository.update(userId, { password: hashedPassword });
-    await this.redis.del(`forgot_pw:${token}`);
 
+    const user = await this.usersRepository.findOne({ where: { id: Number(userId) } });
+    if (!user) throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+
+    const hashedPassword = await hashPassword(newPassword);
+    user.password = hashedPassword;
+    await this.usersRepository.save(user);
+
+    await this.redis.del(`forgot_pw:${token}`);
     await this.logoutAll(Number(userId));
 
     return { message: 'Password has been reset successfully. Please login again.' };
