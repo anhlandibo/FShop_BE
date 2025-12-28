@@ -5,4 +5,5 @@ export {
   OrderStatusDataDto,
   TopProductDto,
   RecentOrderDto,
+  HomePageStatsDto,
 } from './dashboard-response.dto';

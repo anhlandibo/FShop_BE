@@ -14,6 +14,7 @@ import {
   OrderStatusDataDto,
   TopProductDto,
   RecentOrderDto,
+  HomePageStatsDto,
 } from './dto';
 
 @Controller('admin/dashboard')
@@ -58,5 +59,11 @@ export class DashboardController {
   async getRecentOrders(): Promise<RecentOrderDto[]> {
     return this.dashboardService.getRecentOrders();
   }
+
+  @Get('statistics')
+  async getHomePageStatistics(): Promise<HomePageStatsDto> {
+    return this.dashboardService.getHomePageStats();
+  }
 }
+
 

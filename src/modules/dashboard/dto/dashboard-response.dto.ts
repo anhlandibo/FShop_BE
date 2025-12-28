@@ -36,3 +36,13 @@ export interface RecentOrderDto {
   createdAt: string;
   itemsCount: number;
 }
+
+export interface HomePageStatsDto {
+  totalProducts: number;
+  totalCustomers: number;
+  rating: {
+    averageRating: number;
+    totalRatings: number;
+  };
+  satisfactionRate: number;
+}

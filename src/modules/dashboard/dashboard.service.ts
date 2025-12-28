@@ -6,6 +6,8 @@ import { Order } from '../orders/entities/order.entity';
 import { User } from '../users/entities/user.entity';
 import { ProductVariant } from '../products/entities/product-variant.entity';
 import { OrderItem } from '../orders/entities/order-item.entity';
+import { Product } from '../products/entities/product.entity';
+import { Review } from '../reviews/entities/review.entity';
 import {
   DateRange,
   OverviewResponseDto,
@@ -13,7 +15,10 @@ import {
   OrderStatusDataDto,
   TopProductDto,
   RecentOrderDto,
+  HomePageStatsDto,
 } from './dto';
+import { Role } from 'src/constants/role.enum';
+import { ReviewStatus } from 'src/constants';
 
 @Injectable()
 export class DashboardService {
@@ -26,6 +31,10 @@ export class DashboardService {
     private readonly variantRepository: Repository<ProductVariant>,
     @InjectRepository(OrderItem)
     private readonly orderItemRepository: Repository<OrderItem>,
+    @InjectRepository(Product)
+    private readonly productRepository: Repository<Product>,
+    @InjectRepository(Review)
+    private readonly reviewRepository: Repository<Review>,
   ) {}
 
   private getDateRangeFilter(range: DateRange): Date {
@@ -214,5 +223,55 @@ export class DashboardService {
       createdAt: row.order_createdAt,
       itemsCount: parseInt(row.itemsCount) || 0,
     }));
+  }
+
+  async getHomePageStats(): Promise<HomePageStatsDto> {
+    // Get total active products
+    const totalProducts = await this.productRepository
+      .createQueryBuilder('product')
+      .where('product.isActive = :isActive', { isActive: true })
+      .getCount();
+
+    // Get total customers (users with role 'user')
+    const totalCustomers = await this.userRepository
+      .createQueryBuilder('user')
+      .where('user.role = :role', { role: Role.User })
+      .andWhere('user.isActive = :isActive', { isActive: true })
+      .getCount();
+
+    // Get average rating and total ratings from approved reviews
+    const ratingResult = await this.reviewRepository
+      .createQueryBuilder('review')
+      .select('AVG(review.rating)', 'avg')
+      .addSelect('COUNT(review.id)', 'count')
+      .where('review.status = :status', { status: ReviewStatus.APPROVED })
+      .andWhere('review.isActive = :isActive', { isActive: true })
+      .getRawOne();
+
+    const averageRating = parseFloat(ratingResult.avg) || 0;
+    const totalRatings = parseInt(ratingResult.count) || 0;
+
+    // Calculate satisfaction rate (percentage of reviews with rating >= 4)
+    let satisfactionRate = 0;
+    if (totalRatings > 0) {
+      const satisfiedCount = await this.reviewRepository
+        .createQueryBuilder('review')
+        .where('review.rating >= :minRating', { minRating: 4 })
+        .andWhere('review.status = :status', { status: ReviewStatus.APPROVED })
+        .andWhere('review.isActive = :isActive', { isActive: true })
+        .getCount();
+
+      satisfactionRate = Math.round((satisfiedCount / totalRatings) * 100 * 100) / 100;
+    }
+
+    return {
+      totalProducts,
+      totalCustomers,
+      rating: {
+        averageRating: Math.round(averageRating * 10) / 10,
+        totalRatings,
+      },
+      satisfactionRate,
+    };
   }
 }

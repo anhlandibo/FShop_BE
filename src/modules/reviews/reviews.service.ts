@@ -504,7 +504,7 @@ export class ReviewsService {
       comment: r.comment,
       user: {
         id: r.user.id,
-        name: r.user.fullName,
+        fullName: r.user.fullName,
       },
       product: {
         id: r.variant.product.id,

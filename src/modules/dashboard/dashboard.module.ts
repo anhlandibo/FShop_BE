@@ -6,10 +6,12 @@ import { Order } from '../orders/entities/order.entity';
 import { User } from '../users/entities/user.entity';
 import { ProductVariant } from '../products/entities/product-variant.entity';
 import { OrderItem } from '../orders/entities/order-item.entity';
+import { Product } from '../products/entities/product.entity';
+import { Review } from '../reviews/entities/review.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Order, User, ProductVariant, OrderItem]),
+    TypeOrmModule.forFeature([Order, User, ProductVariant, OrderItem, Product, Review]),
   ],
   controllers: [DashboardController],
   providers: [DashboardService],
