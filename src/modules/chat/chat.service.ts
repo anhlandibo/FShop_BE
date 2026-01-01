@@ -1,16 +1,19 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   Injectable,
   ForbiddenException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Conversation } from './entities/conversation.entity';
-import { Message } from './entities/message.entity';
+import { Message, MessageAttachment } from './entities/message.entity';
 import { SendMessageDto } from './dto/send-message.dto';
 import { ChatGateway } from './chat.gateway';
 import { User } from 'src/modules/users/entities/user.entity';
 import { Role } from 'src/constants';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Injectable()
 export class ChatService {
@@ -22,6 +25,7 @@ export class ChatService {
     private readonly msgRepo: Repository<Message>,
 
     private readonly gateway: ChatGateway,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   // =========================
@@ -47,7 +51,28 @@ export class ChatService {
   // =========================
   // SEND MESSAGE
   // =========================
-  async sendMessage(dto: SendMessageDto, sender: User) {
+  async sendMessage(
+    dto: SendMessageDto,
+    sender: User,
+    files?: {
+      images?: Express.Multer.File[];
+      voice?: Express.Multer.File[];
+      video?: Express.Multer.File[];
+    }
+  ) {
+    // 1. Validate: must have content OR files
+    const hasContent = dto.content && dto.content.trim().length > 0;
+    const hasFiles = files && (
+      (files.images && files.images.length > 0) ||
+      (files.voice && files.voice.length > 0) ||
+      (files.video && files.video.length > 0)
+    );
+
+    if (!hasContent && !hasFiles) {
+      throw new BadRequestException('Message must have content or attachments');
+    }
+
+    // 2. Existing validation (conversation, permissions)
     const convo = await this.convoRepo.findOne({
       where: { id: dto.conversationId },
       relations: ['customer', 'assignedAdmin'],
@@ -60,18 +85,100 @@ export class ChatService {
       throw new ForbiddenException();
     }
 
+    // 3. Upload files to Cloudinary
+    const attachments: MessageAttachment[] = [];
+
+    try {
+      // Upload images
+      if (files && files.images && files.images.length > 0) {
+        const uploads = await Promise.all(
+          files.images.map(f =>
+            this.cloudinaryService.uploadFileToFolder(f, 'chat/images', 'image')
+          )
+        );
+
+        uploads.forEach(upload => {
+          if (upload) {
+            attachments.push({
+              type: 'image',
+              url: upload.secure_url,
+              publicId: upload.public_id,
+              fileSize: upload.bytes,
+              format: upload.format,
+              dimensions: upload.width && upload.height ? {
+                width: upload.width,
+                height: upload.height,
+              } : undefined,
+            });
+          }
+        });
+      }
+
+      // Upload voice
+      if (files && files.voice && files.voice.length > 0) {
+        const upload = await this.cloudinaryService.uploadFileToFolder(
+          files.voice[0],
+          'chat/voice',
+          'video' // audio uses 'video' resource_type in Cloudinary
+        );
+
+        if (upload) {
+          attachments.push({
+            type: 'voice',
+            url: upload.secure_url,
+            publicId: upload.public_id,
+            fileName: files.voice[0].originalname,
+            fileSize: upload.bytes,
+            format: upload.format,
+            duration: upload.duration,
+          });
+        }
+      }
+
+      // Upload video
+      if (files && files.video && files.video.length > 0) {
+        const upload = await this.cloudinaryService.uploadFileToFolder(
+          files.video[0],
+          'chat/videos',
+          'video'
+        );
+
+        if (upload) {
+          attachments.push({
+            type: 'video',
+            url: upload.secure_url,
+            publicId: upload.public_id,
+            fileName: files.video[0].originalname,
+            fileSize: upload.bytes,
+            format: upload.format,
+            duration: upload.duration,
+            dimensions: upload.width && upload.height ? {
+              width: upload.width,
+              height: upload.height,
+            } : undefined,
+          });
+        }
+      }
+    } catch (error: any) {
+      throw new BadRequestException(
+        `Failed to upload attachments: ${error.message}`
+      );
+    }
+
+    // 4. Create message
     const message = this.msgRepo.create({
       conversation: convo,
       sender,
       senderRole: sender.role,
-      content: dto.content,
+      content: dto.content || null,
+      attachments: attachments.length > 0 ? attachments : null,
       isDelivered: true,
       isSeen: false,
     });
 
     const saved = await this.msgRepo.save(message);
 
-    // ===== UPDATE CONVERSATION =====
+    // 5. Update conversation (existing logic)
     convo.lastMessageAt = new Date();
 
     if (sender.role === Role.Admin) {
@@ -81,11 +188,12 @@ export class ChatService {
 
     await this.convoRepo.save(convo);
 
-    // ===== BUILD MESSAGE DTO (RẤT QUAN TRỌNG) =====
+    // 6. Build response DTO
     const messageDto = {
       id: saved.id,
       conversationId: convo.id,
       content: saved.content,
+      attachments: saved.attachments,
       senderRole: saved.senderRole,
       sender: {
         id: sender.id,
@@ -97,7 +205,7 @@ export class ChatService {
       createdAt: saved.createdAt,
     };
 
-    // ✅ EMIT 1 LẦN – ĐÚNG ROOM
+    // 7. Emit via WebSocket
     this.gateway.emitMessage(convo.id, messageDto);
 
     return messageDto;
@@ -133,6 +241,7 @@ export class ChatService {
       id: m.id,
       conversationId,
       content: m.content,
+      attachments: m.attachments,
       senderRole: m.senderRole,
       sender: {
         id: m.sender.id,

@@ -8,6 +8,22 @@ import {
 import { Conversation } from './conversation.entity';
 import { User } from 'src/modules/users/entities/user.entity';
 
+export type AttachmentType = 'image' | 'voice' | 'video';
+
+export interface MessageAttachment {
+  type: AttachmentType;
+  url: string;
+  publicId: string;
+  fileName?: string;
+  fileSize?: number;
+  duration?: number;
+  dimensions?: {
+    width: number;
+    height: number;
+  };
+  format?: string;
+}
+
 @Entity('messages')
 export class Message {
   @PrimaryGeneratedColumn()
@@ -25,8 +41,11 @@ export class Message {
   })
   senderRole: 'user' | 'admin';
 
-  @Column('text')
-  content: string;
+  @Column('text', { nullable: true })
+  content: string | null;
+
+  @Column('jsonb', { nullable: true })
+  attachments: MessageAttachment[] | null;
 
   @Column({ default: false })
   isDelivered: boolean;

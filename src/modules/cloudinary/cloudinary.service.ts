@@ -42,4 +42,25 @@ export class CloudinaryService {
       Readable.from(buffer).pipe(uploadStream);
     });
   }
+
+    uploadFileToFolder(
+        file: Express.Multer.File,
+        folder: string,
+        resourceType?: 'image' | 'video' | 'raw' | 'auto'
+    ): Promise<CloudinaryResponse> {
+        return new Promise((resolve, reject) => {
+            const uploadStream = cloudinary.uploader.upload_stream(
+                {
+                    folder,
+                    resource_type: resourceType || 'auto',
+                },
+                (error, result) => {
+                    if (error) return reject(error);
+                    resolve(result);
+                },
+            );
+
+            streamifier.createReadStream(file.buffer).pipe(uploadStream);
+        });
+    }
 }
