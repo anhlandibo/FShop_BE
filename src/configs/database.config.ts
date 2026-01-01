@@ -12,5 +12,9 @@ const getDatabaseConfig = (
   database: configService.get<string>('DB_NAME'),
   autoLoadEntities: true,
   synchronize: true,
+  extra: {
+    options: '-c timezone=Asia/Ho_Chi_Minh',
+  },
 });
+
 export default getDatabaseConfig;
