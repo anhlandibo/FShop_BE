@@ -10,6 +10,7 @@ import { Post } from 'src/modules/posts/entities/post.entity';
 import { PostLike } from 'src/modules/posts/entities/post-like.entity';
 import { PostBookmark } from 'src/modules/posts/entities/post-bookmark.entity';
 import { PostShare } from 'src/modules/posts/entities/post-share.entity';
+import { PostReaction } from 'src/modules/posts/entities/post-reaction.entity';
 import {
   Entity,
   Column,
@@ -81,6 +82,9 @@ export class User {
 
   @OneToMany(() => PostLike, (like) => like.user)
   postLikes: PostLike[];
+
+  @OneToMany(() => PostReaction, (reaction) => reaction.user)
+  postReactions: PostReaction[];
 
   @OneToMany(() => PostBookmark, (bookmark) => bookmark.user)
   postBookmarks: PostBookmark[];

@@ -15,7 +15,7 @@ import {
 import { PostsService } from './posts.service';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiNotFoundResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { CreatePostDto, UpdatePostDto, CreateCommentDto, UpdateCommentDto, QueryPostsDto, DeletePostsDto, RestorePostsDto } from './dto';
+import { CreatePostDto, UpdatePostDto, CreateCommentDto, UpdateCommentDto, QueryPostsDto, DeletePostsDto, RestorePostsDto, CreateReactionDto, CreateReplyDto } from './dto';
 import { AuthGuard } from '@nestjs/passport';
 
 @ApiTags('Posts')
@@ -83,11 +83,21 @@ export class PostsController {
   @UseGuards(AuthGuard('jwt'))
   @PostMethod(':id/like')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Like or unlike a post (toggle)' })
+  @ApiOperation({ summary: 'Like or unlike a post (toggle) - Deprecated, use /react instead' })
   @ApiNotFoundResponse({ description: 'Post not found' })
   toggleLike(@Req() request: Request, @Param('id') id: number) {
     const { id: userId } = request['user'];
     return this.postsService.toggleLike(id, userId);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @PostMethod(':id/react')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'React to a post (LIKE, LOVE, HAHA, WOW, SAD, ANGRY) - toggle or change reaction' })
+  @ApiNotFoundResponse({ description: 'Post not found' })
+  toggleReaction(@Req() request: Request, @Param('id') id: number, @Body() dto: CreateReactionDto) {
+    const { id: userId } = request['user'];
+    return this.postsService.toggleReaction(id, userId, dto.type);
   }
 
   @UseGuards(AuthGuard('jwt'))
@@ -130,6 +140,33 @@ export class PostsController {
   deleteComment(@Req() request: Request, @Param('postId') postId: number, @Param('commentId') commentId: number) {
     const { id: userId } = request['user'];
     return this.postsService.deleteComment(postId, commentId, userId);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @PostMethod(':postId/comments/:commentId/replies')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Add a reply to a comment (unlimited depth - Reddit/Facebook style)' })
+  @ApiNotFoundResponse({ description: 'Comment not found' })
+  addReply(
+    @Req() request: Request,
+    @Param('postId') postId: number,
+    @Param('commentId') commentId: number,
+    @Body() dto: CreateReplyDto,
+  ) {
+    const { id: userId } = request['user'];
+    return this.postsService.addReply(postId, commentId, userId, dto.content);
+  }
+
+  @Get(':postId/comments/:commentId/replies')
+  @ApiOperation({ summary: 'Get replies for a comment (supports nested threading)' })
+  @ApiNotFoundResponse({ description: 'Comment not found' })
+  getReplies(
+    @Param('postId') postId: number,
+    @Param('commentId') commentId: number,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.postsService.getReplies(postId, commentId, page, limit);
   }
 
   @UseGuards(AuthGuard('jwt'))

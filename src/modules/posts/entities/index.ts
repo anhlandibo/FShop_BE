@@ -5,3 +5,4 @@ export * from './post-like.entity';
 export * from './post-comment.entity';
 export * from './post-bookmark.entity';
 export * from './post-share.entity';
+export * from './post-reaction.entity';

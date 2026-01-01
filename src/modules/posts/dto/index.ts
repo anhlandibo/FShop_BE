@@ -5,3 +5,5 @@ export * from './update-comment.dto';
 export * from './query-posts.dto';
 export * from './delete-posts.dto';
 export * from './restore-posts.dto';
+export * from './create-reaction.dto';
+export * from './create-reply.dto';
