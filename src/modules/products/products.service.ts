@@ -83,7 +83,7 @@ export class ProductsService {
       };
 
       await firstValueFrom(
-        this.httpService.post('http://localhost:8000/products/sync', payload)
+        this.httpService.post('http://localhost:8001/products/sync', payload)
       );
       console.log(`Synced Product ${productId} to RAG AI.`);
 
@@ -95,7 +95,7 @@ export class ProductsService {
   async removeProductFromRAG(productId: number) {
     try {
       await firstValueFrom(
-        this.httpService.post('http://localhost:8000/products/remove', { product_id: productId })
+        this.httpService.post('http://localhost:8001/products/remove', { product_id: productId })
       );
       console.log(`Removed Product ${productId} from RAG AI.`);
     } catch (error) {
@@ -552,7 +552,7 @@ export class ProductsService {
       const formData = new FormData();
       formData.append('file', file.buffer, file.originalname);
 
-      const url = 'http://localhost:8000/search/image';
+      const url = 'http://localhost:8001/search/image';
 
       const { data: aiResults } = await firstValueFrom(
         this.httpService.post(url, formData, {
@@ -603,7 +603,7 @@ export class ProductsService {
         image_url: imageUrl,
       };
       this.httpService
-        .post('http://localhost:8000/vectors/upsert', payload)
+        .post('http://localhost:8001/vectors/upsert', payload)
         .subscribe({
           error: (err) => console.error('Sync Vector Error:', err.message),
         });
@@ -617,7 +617,7 @@ export class ProductsService {
     try {
       const payload = { image_ids: imageIds };
       this.httpService
-        .post('http://localhost:8000/vectors/delete', payload)
+        .post('http://localhost:8001/vectors/delete', payload)
         .subscribe({
           error: (err) => console.error('Delete Vector Error:', err.message),
         });
@@ -782,7 +782,7 @@ export class ProductsService {
     // 3. Gọi AI Service (Payload lúc này gửi image_id là số)
     try {
       const { data } = await firstValueFrom(
-        this.httpService.post('http://localhost:8000/recommend/profile-based', {
+        this.httpService.post('http://localhost:8001/recommend/profile-based', {
           interactions: userInteractions 
         })
       );
@@ -822,7 +822,7 @@ export class ProductsService {
       const formData = new FormData();
       formData.append('file', file.buffer, file.originalname);
 
-      const url = 'http://localhost:8000/search/voice';
+      const url = 'http://localhost:8001/search/voice';
 
       const { data: aiResults } = await firstValueFrom(
         this.httpService.post(url, formData, {

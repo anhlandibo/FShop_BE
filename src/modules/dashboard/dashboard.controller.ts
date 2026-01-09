@@ -19,7 +19,7 @@ import {
 
 @Controller('admin/dashboard')
 @UseGuards(AuthGuard, RolesGuard)
-@Roles(Role.Admin)
+@Roles(Role.Admin, Role.User)
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 

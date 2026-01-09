@@ -19,7 +19,7 @@ export class ChatbotService {
 
   async chat(userId: number, dto: ChatRequestDto) {
     const { question } = dto;
-    const pythonServiceUrl = 'http://localhost:8000/chat/ask';
+    const pythonServiceUrl = 'http://localhost:8001/chat/ask';
 
     try {
       const recentMessages = await this.chatRepo.find({
@@ -37,6 +37,7 @@ export class ChatbotService {
         this.httpService.post(pythonServiceUrl, {
           question: question,
           history: history,
+          user_id: userId,
         }),
       );
 
