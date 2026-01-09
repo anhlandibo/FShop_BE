@@ -13,6 +13,9 @@ export class ChatMessage {
     @Column({ type: 'text' })
     content: string;
 
+    @Column({ type: 'jsonb', nullable: true }) 
+    metadata: any;
+
     @ManyToOne(() => User, (user) => user.id, { onDelete: 'CASCADE' })
     @Exclude()
     user: User;
