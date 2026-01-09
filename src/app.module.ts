@@ -43,6 +43,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ChatModule } from 'src/modules/chat/chat.module';
 import { ChatbotModule } from './modules/chatbot/chatbot.module';
 import { PostsModule } from './modules/posts/posts.module';
+import { LivestreamsModule } from './modules/livestreams/livestreams.module';
 
 @Module({
   imports: [
@@ -85,6 +86,7 @@ import { PostsModule } from './modules/posts/posts.module';
     ChatbotModule,
     PostsModule,
     ChatModule,
+    LivestreamsModule,
   ],
   controllers: [AppController],
   providers: [

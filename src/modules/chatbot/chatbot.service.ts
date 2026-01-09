@@ -19,7 +19,7 @@ export class ChatbotService {
 
   async chat(userId: number, dto: ChatRequestDto) {
     const { question } = dto;
-    const pythonServiceUrl = 'http://localhost:8000/chat/ask';
+    const pythonServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8001/chat/ask';
 
     try {
       const recentMessages = await this.chatRepo.find({
@@ -37,6 +37,7 @@ export class ChatbotService {
         this.httpService.post(pythonServiceUrl, {
           question: question,
           history: history,
+          user_id: userId,
         }),
       );
 
@@ -51,6 +52,9 @@ export class ChatbotService {
         role: 'assistant',
         content: data.answer,
         user: { id: userId } as User,
+        metadata: { 
+            recommendedProducts: data.products || [] 
+        }
       });
       await this.chatRepo.save(botMsg);
 
@@ -71,7 +75,7 @@ export class ChatbotService {
     return this.chatRepo.find({
       where: { user: { id: userId } },
       order: { createdAt: 'ASC' }, 
-      select: ['id', 'role', 'content', 'createdAt'], 
+      select: ['id', 'role', 'content', 'createdAt', 'metadata'], 
     });
   }
   
