@@ -95,7 +95,7 @@ export class PostsService {
     const { page, limit, search, sortType = 'newest', sortBy, sortOrder } = query;
 
     let orderBy: any = {};
-    if (sortType === 'popular') orderBy = { totalLikes: 'DESC', createdAt: 'DESC' };
+    if (sortType === 'popular') orderBy = { totalReactions: 'DESC', createdAt: 'DESC' };
     else orderBy = { createdAt: 'DESC' };
 
     // If custom sortBy provided, override
