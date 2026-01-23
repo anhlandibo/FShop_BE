@@ -44,6 +44,8 @@ import { ChatModule } from 'src/modules/chat/chat.module';
 import { ChatbotModule } from './modules/chatbot/chatbot.module';
 import { PostsModule } from './modules/posts/posts.module';
 import { LivestreamsModule } from './modules/livestreams/livestreams.module';
+import { MinioModule } from './modules/minio/minio.module';
+import { BackupModule } from './modules/backup/backup.module';
 
 @Module({
   imports: [
@@ -87,6 +89,8 @@ import { LivestreamsModule } from './modules/livestreams/livestreams.module';
     PostsModule,
     ChatModule,
     LivestreamsModule,
+    MinioModule,
+    BackupModule,
   ],
   controllers: [AppController],
   providers: [

@@ -39,7 +39,7 @@ export class DashboardController {
     return this.dashboardService.getRevenue(range);
   }
 
-  @Get('/orders/order-status')
+  @Get('orders/order-status')
   async getOrderStatus(
     @Query() query: DashboardQueryDto,
   ): Promise<OrderStatusDataDto[]> {
@@ -55,7 +55,7 @@ export class DashboardController {
     return this.dashboardService.getTopProducts(range);
   }
 
-  @Get('/orders/recent')
+  @Get('orders/recent')
   async getRecentOrders(): Promise<RecentOrderDto[]> {
     return this.dashboardService.getRecentOrders();
   }
