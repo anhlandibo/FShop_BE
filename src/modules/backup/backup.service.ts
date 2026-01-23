@@ -1,0 +1,271 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Cron } from '@nestjs/schedule';
+import { MinioService } from '../minio/minio.service';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import * as fs from 'fs';
+import * as path from 'path';
+import { BackupMetadata } from './interfaces/backup-metadata.interface';
+
+const execAsync = promisify(exec);
+
+@Injectable()
+export class BackupService {
+  private readonly logger = new Logger(BackupService.name);
+  private readonly tempDir: string;
+
+  constructor(
+    private readonly minioService: MinioService,
+    private readonly configService: ConfigService,
+  ) {
+    this.tempDir = path.join(process.cwd(), 'temp');
+    this.ensureTempDirExists();
+  }
+
+  private ensureTempDirExists(): void {
+    if (!fs.existsSync(this.tempDir)) {
+      fs.mkdirSync(this.tempDir, { recursive: true });
+    }
+  }
+
+  private generateBackupFilename(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+
+    return `backup_${year}-${month}-${day}_${hours}${minutes}${seconds}.dump`;
+  }
+
+  async createBackup(): Promise<BackupMetadata> {
+    const filename = this.generateBackupFilename();
+    const tempFilePath = path.join(this.tempDir, filename);
+
+    const dbUsername = this.configService.get<string>('DB_USERNAME');
+    const dbPassword = this.configService.get<string>('DB_PASSWORD');
+    const dbName = this.configService.get<string>('DB_NAME');
+
+    const containerName = 'fshop_postgres';
+    const containerBackupPath = `/tmp/${filename}`;
+
+    try {
+      this.logger.log(`Starting database backup: ${filename}`);
+
+      // Step 1: Create backup inside container
+      const dumpCommand = `docker exec -e PGPASSWORD=${dbPassword} ${containerName} pg_dump -U ${dbUsername} -d ${dbName} -F c -f ${containerBackupPath}`;
+
+      await execAsync(dumpCommand);
+
+      this.logger.log(`Database dumped inside container: ${containerBackupPath}`);
+
+      // Step 2: Copy backup file from container to host
+      const copyCommand = `docker cp ${containerName}:${containerBackupPath} "${tempFilePath}"`;
+
+      await execAsync(copyCommand);
+
+      this.logger.log(`Backup copied to host: ${tempFilePath}`);
+
+      // Step 3: Clean up backup file inside container
+      const cleanupCommand = `docker exec ${containerName} rm ${containerBackupPath}`;
+
+      await execAsync(cleanupCommand).catch(() => {
+        this.logger.warn('Failed to clean up backup file in container');
+      });
+
+      // Step 4: Upload to MinIO
+      await this.minioService.uploadFile(filename, tempFilePath);
+
+      this.logger.log(`Backup uploaded to MinIO: ${filename}`);
+
+      // Get file stats
+      const fileStats = fs.statSync(tempFilePath);
+
+      // Clean up temp file on host
+      fs.unlinkSync(tempFilePath);
+
+      this.logger.log(`Temp file cleaned up: ${tempFilePath}`);
+
+      return {
+        filename,
+        size: fileStats.size,
+        createdAt: new Date(),
+        status: 'success',
+      };
+    } catch (error) {
+      this.logger.error(`Backup failed: ${error.message}`, error.stack);
+
+      // Clean up temp file if exists
+      if (fs.existsSync(tempFilePath)) {
+        fs.unlinkSync(tempFilePath);
+      }
+
+      throw new BadRequestException(
+        `Database backup failed: ${error.message}`,
+      );
+    }
+  }
+
+  async listBackups(): Promise<BackupMetadata[]> {
+    try {
+      const files = await this.minioService.listFiles();
+
+      const backups: BackupMetadata[] = files
+        .filter((file) => file.fileName.startsWith('backup_'))
+        .map((file) => ({
+          filename: file.fileName,
+          size: file.size,
+          createdAt: file.lastModified,
+          status: 'success' as const,
+        }))
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+      return backups;
+    } catch (error) {
+      this.logger.error(`Failed to list backups: ${error.message}`);
+      throw new InternalServerErrorException('Failed to list backups');
+    }
+  }
+
+  async restoreBackup(filename: string): Promise<void> {
+    const tempFilePath = path.join(this.tempDir, filename);
+
+    const dbUsername = this.configService.get<string>('DB_USERNAME');
+    const dbPassword = this.configService.get<string>('DB_PASSWORD');
+    const dbName = this.configService.get<string>('DB_NAME');
+
+    const containerName = 'fshop_postgres';
+    const containerBackupPath = `/tmp/${filename}`;
+
+    try {
+      this.logger.log(`Starting database restore from: ${filename}`);
+
+      // Step 1: Download backup file from MinIO
+      await this.minioService.downloadFile(filename, tempFilePath);
+
+      this.logger.log(`Backup downloaded to ${tempFilePath}`);
+
+      // Step 2: Copy backup file to container
+      const copyToContainerCommand = `docker cp "${tempFilePath}" ${containerName}:${containerBackupPath}`;
+
+      await execAsync(copyToContainerCommand);
+
+      this.logger.log(`Backup copied to container: ${containerBackupPath}`);
+
+      // Step 3: Terminate active connections
+      const terminateConnectionsCommand = `docker exec -e PGPASSWORD=${dbPassword} ${containerName} psql -U ${dbUsername} -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${dbName}' AND pid <> pg_backend_pid();"`;
+
+      try {
+        await execAsync(terminateConnectionsCommand);
+        this.logger.log('Active database connections terminated');
+      } catch (error) {
+        this.logger.warn(
+          `Failed to terminate connections (this is OK if no active connections): ${error.message}`,
+        );
+      }
+
+      // Step 4: Drop and recreate schema
+      const dropSchemaCommand = `docker exec -e PGPASSWORD=${dbPassword} ${containerName} psql -U ${dbUsername} -d ${dbName} -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"`;
+
+      await execAsync(dropSchemaCommand);
+
+      this.logger.log('Schema dropped and recreated');
+
+      // Step 5: Restore from backup
+      const restoreCommand = `docker exec -e PGPASSWORD=${dbPassword} ${containerName} pg_restore -U ${dbUsername} -d ${dbName} -F c ${containerBackupPath}`;
+
+      await execAsync(restoreCommand);
+
+      this.logger.log(`Database restored successfully from ${filename}`);
+
+      // Step 6: Clean up backup file in container
+      const cleanupCommand = `docker exec ${containerName} rm ${containerBackupPath}`;
+
+      await execAsync(cleanupCommand).catch(() => {
+        this.logger.warn('Failed to clean up backup file in container');
+      });
+
+      // Clean up temp file on host
+      fs.unlinkSync(tempFilePath);
+
+      this.logger.log(`Temp file cleaned up: ${tempFilePath}`);
+    } catch (error) {
+      this.logger.error(`Restore failed: ${error.message}`, error.stack);
+
+      // Clean up temp file if exists
+      if (fs.existsSync(tempFilePath)) {
+        fs.unlinkSync(tempFilePath);
+      }
+
+      throw new BadRequestException(`Database restore failed: ${error.message}`);
+    }
+  }
+
+  async deleteBackup(filename: string): Promise<void> {
+    try {
+      this.logger.log(`Deleting backup: ${filename}`);
+
+      await this.minioService.deleteFile(filename);
+
+      this.logger.log(`Backup deleted successfully: ${filename}`);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      this.logger.error(`Failed to delete backup: ${error.message}`);
+      throw new InternalServerErrorException('Failed to delete backup');
+    }
+  }
+
+  async getBackupInfo(filename: string): Promise<BackupMetadata> {
+    try {
+      const stat = await this.minioService.getFileStat(filename);
+      const downloadUrl = await this.minioService.getFileUrl(filename, 3600);
+
+      return {
+        filename,
+        size: stat.size,
+        createdAt: stat.lastModified,
+        status: 'success',
+        downloadUrl,
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      this.logger.error(`Failed to get backup info: ${error.message}`);
+      throw new InternalServerErrorException('Failed to get backup info');
+    }
+  }
+
+  // Scheduled automatic backup
+  // Demo: Every 10 seconds (current setting)
+  // Production: Every day at 2 AM -> change to 
+  // 
+  @Cron('0 2 * * *')
+  //@Cron('*/10 * * * * *')
+  async handleScheduledBackup(): Promise<void> {
+    this.logger.log('Starting scheduled automatic backup...');
+
+    try {
+      const backup = await this.createBackup();
+      this.logger.log(
+        `Scheduled backup completed successfully: ${backup.filename} (${backup.size} bytes)`,
+      );
+    } catch (error) {
+      this.logger.error(`Scheduled backup failed: ${error.message}`);
+    }
+  }
+}
